@@ -18,7 +18,7 @@
 2. **Next.js 16 breaking changes.** Before writing any file under `apps/web/src/app`, read the relevant guide in `apps/web/node_modules/next/dist/docs/` (per `AGENTS.md`). Page props `params` are a Promise — `await` it in server components.
 3. **Repo style:** no code comments, follow existing file conventions exactly (text IDs via `$defaultFn(crypto.randomUUID())`, `timestamp()` without tz mode, zod v4 validation in every procedure input).
 4. **Auth roles take effect on next request** (FR-018) — no cache invalidation machinery needed; do not add any.
-5. **Known M1 limitations (accepted, revisit in M2+):** last-owner protection has a theoretical race under concurrent demotions (two owners demoted simultaneously can leave zero owners — recovery currently requires DB access); draft constellations are readable via direct slug access until discovery/search lands (Epic 5) or M2 hardening adds a status gate to public reads.
+5. **Known M1 limitations (accepted, revisit in M2+):** last-owner protection has a theoretical race under concurrent demotions (two owners demoted simultaneously can leave zero owners — recovery currently requires DB access); draft constellations are readable via direct slug access until discovery/search lands (Epic 5) or M2 hardening adds a status gate to public reads; **denied cluster join-requests are final for v1** — the `(clusterId, userId)` unique index means denied (or approved-then-removed) users cannot re-request; re-application flow is a v1.x decision; locked/invite-only cluster names and descriptions remain visible to fellow constellation members (with `access: "locked"`) because the cluster list needs badges — content itself stays gated until M2 chat arrives.
 
 ## File Structure
 
@@ -439,7 +439,7 @@ export function resolveClusterAccess(params: {
 - [ ] **Step 3.4: Run tests, confirm pass**
 
 Run: `bun test packages/api/test`
-Expected: `12 pass` (or more), `0 fail`.
+Expected: all pass, 0 fail.
 
 - [ ] **Step 3.5: Commit**
 
@@ -1191,7 +1191,7 @@ export type AppRouter = typeof appRouter;
 - [ ] **Step 6.3: Typecheck + unit tests**
 
 Run: `bun run check-types && bun test packages/api/test`
-Expected: types pass; `12 pass`.
+Expected: types pass; all tests green.
 
 - [ ] **Step 6.4: Commit**
 
