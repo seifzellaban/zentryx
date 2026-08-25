@@ -1,0 +1,24 @@
+{
+  "name": "@zentryx/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@zentryx/db": "workspace:*",
+    "@zentryx/env": "workspace:*",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@zentryx/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

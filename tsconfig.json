@@ -1,0 +1,3 @@
+{
+  "extends": "@zentryx/config/tsconfig.base.json"
+}

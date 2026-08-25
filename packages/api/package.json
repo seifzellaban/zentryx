@@ -1,0 +1,27 @@
+{
+  "name": "@zentryx/api",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@trpc/client": "catalog:",
+    "@trpc/server": "catalog:",
+    "@zentryx/auth": "workspace:*",
+    "@zentryx/db": "workspace:*",
+    "@zentryx/env": "workspace:*",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@zentryx/config": "workspace:*",
+    "elysia": "catalog:",
+    "typescript": "catalog:"
+  }
+}
