@@ -67,7 +67,7 @@ export const constellationRouter = router({
       if (existing.length > 0) {
         throw new TRPCError({ code: "CONFLICT", message: "Slug already taken" });
       }
-      let created: { id: string; slug: string };
+      let created: { id: string; slug: string } | undefined;
       try {
         const [inserted] = await db
           .insert(constellation)
@@ -92,7 +92,9 @@ export const constellationRouter = router({
           role: "owner",
         });
       } catch (err) {
-        await db.delete(constellation).where(eq(constellation.slug, input.slug));
+        if (created) {
+          await db.delete(constellation).where(eq(constellation.id, created.id));
+        }
         throw err;
       }
       return created;
