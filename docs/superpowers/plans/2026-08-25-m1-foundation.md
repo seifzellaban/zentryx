@@ -18,6 +18,7 @@
 2. **Next.js 16 breaking changes.** Before writing any file under `apps/web/src/app`, read the relevant guide in `apps/web/node_modules/next/dist/docs/` (per `AGENTS.md`). Page props `params` are a Promise — `await` it in server components.
 3. **Repo style:** no code comments, follow existing file conventions exactly (text IDs via `$defaultFn(crypto.randomUUID())`, `timestamp()` without tz mode, zod v4 validation in every procedure input).
 4. **Auth roles take effect on next request** (FR-018) — no cache invalidation machinery needed; do not add any.
+5. **Known M1 limitations (accepted, revisit in M2+):** last-owner protection has a theoretical race under concurrent demotions (two owners demoted simultaneously can leave zero owners — recovery currently requires DB access); draft constellations are readable via direct slug access until discovery/search lands (Epic 5) or M2 hardening adds a status gate to public reads.
 
 ## File Structure
 
@@ -1251,6 +1252,18 @@ Repeat Step 7.4 later tasks will reuse this pattern. Record the returned `id` as
 As Alice: call `constellation.createInvite` (same pattern, input `{"json":{"constellationId":"$CID"}}`) → copy `url`. As Bob (his cookie): GET the `constellation.invitePreview` query URL with `?input={"json":{"token":"..."}}` then POST `constellation.acceptInvite`.
 
 Expected: accept returns `{"slug":"trading-fundamentals"}`.
+
+- [ ] **Step 7.5b: Negative-path authorization checks (FR-018 enforcement)**
+
+With cookies for Bob (plain member) and a third account Charlie:
+1. Bob calls `constellation.setMemberRole` with any membership id → expect FORBIDDEN error, not success
+2. Bob calls `constellation.removeMember` on Alice's membership → expect FORBIDDEN
+3. Bob calls `constellation.createInvite` → expect FORBIDDEN (member cannot invite)
+4. Alice creates an email-bound invite for bob@example.com; Charlie attempts `acceptInvite` with that token → expect FORBIDDEN
+5. Charlie calls `acceptInvite` with an already-accepted token → expect FORBIDDEN
+6. Bob calls `cluster.create` in the constellation → expect FORBIDDEN
+
+Expected: every call rejected server-side; no partial state changes.
 
 - [ ] **Step 7.6: Commit checkpoint tag**
 
