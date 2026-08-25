@@ -398,7 +398,7 @@ describe("resolveClusterAccess", () => {
 
 - [ ] **Step 3.2: Run it, confirm failure**
 
-Run: `bun test packages/api`
+Run: `bun test packages/api/test`
 Expected: FAIL — cannot resolve `../src/permissions`.
 
 - [ ] **Step 3.3: Implement `packages/api/src/permissions.ts`**
@@ -438,7 +438,7 @@ export function resolveClusterAccess(params: {
 
 - [ ] **Step 3.4: Run tests, confirm pass**
 
-Run: `bun test packages/api`
+Run: `bun test packages/api/test`
 Expected: `12 pass` (or more), `0 fail`.
 
 - [ ] **Step 3.5: Commit**
@@ -1461,7 +1461,7 @@ git commit -m "docs: M1 deployment runbook for Hetzner/Coolify + Neon"
 ## Final Verification (M1 exit gate)
 
 - [ ] `bun run check` passes from repo root.
-- [ ] `bun test packages/api` green.
+- [ ] `bun test packages/api/test` green.
 - [ ] Fresh-database walkthrough (drop/recreate Neon branch, `bun run db:push`, seed): sign up → create → invite → second user sees only permitted clusters → approval flips access. Screenshots into `docs/m1-evidence/`.
 - [ ] Deployed Coolify instance passes the same walkthrough.
 - [ ] Tag: `git tag m1-exit && git push --tags`
