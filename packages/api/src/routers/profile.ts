@@ -30,6 +30,22 @@ export const profileRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (
+        input.name === undefined &&
+        input.bio === undefined &&
+        input.skills === undefined
+      ) {
+        const [current] = await db
+          .select()
+          .from(userProfile)
+          .where(eq(userProfile.userId, ctx.session.user.id))
+          .limit(1);
+        return {
+          name: ctx.session.user.name,
+          bio: current?.bio ?? "",
+          skills: current?.skills ?? [],
+        };
+      }
       if (input.name !== undefined) {
         await db
           .update(user)
@@ -52,6 +68,15 @@ export const profileRouter = router({
           target: userProfile.userId,
           set: next,
         });
-      return next;
+      const [updatedUser] = await db
+        .select({ name: user.name })
+        .from(user)
+        .where(eq(user.id, ctx.session.user.id))
+        .limit(1);
+      return {
+        name: updatedUser?.name ?? ctx.session.user.name,
+        bio: next.bio,
+        skills: next.skills,
+      };
     }),
 });
