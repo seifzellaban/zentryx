@@ -31,6 +31,9 @@ describe("resolveClusterAccess", () => {
     expect(resolveClusterAccess({ ...base, role: null, visibility: "public" })).toBe(
       "locked",
     );
+    expect(
+      resolveClusterAccess({ role: null, visibility: "invite", isClusterMember: true }),
+    ).toBe("locked");
   });
 
   test("moderators and above see everything", () => {

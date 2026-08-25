@@ -1,5 +1,6 @@
-export type MemberRole = "owner" | "navigator" | "moderator" | "member";
-export type ClusterVisibility = "public" | "members" | "invite";
+import type { ClusterVisibility, MemberRole } from "@zentryx/db/schema";
+
+export type { ClusterVisibility, MemberRole };
 export type ClusterAccess = "granted" | "joinable" | "locked";
 
 export const ROLE_RANK: Record<MemberRole, number> = {
