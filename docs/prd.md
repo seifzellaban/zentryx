@@ -319,7 +319,7 @@ Sequenced immediately after v1 based on pilot feedback — do not let v1 linger 
 | Neon Postgres (managed DB, branching)                       | External service  | In use via scaffold  | Low-Med (vendor) | Standard Postgres via Drizzle keeps migration path open |
 | LiveKit OSS + coturn (self-hosted)                          | External software | To deploy (M2)       | Med              | D-06 cloud-switch triggers                              |
 | Paymob merchant account w/ tokenization                     | External service  | To verify (M3 spike) | High (R-01)      | Stripe fallback rail                                    |
-| Transactional email provider (e.g., Resend)                 | External service  | To select (M1)       | Low              | Swap-in behind mail interface                           |
+| Transactional email provider (e.g., Resend)                 | External service  | To select (M2)       | Low              | Swap-in behind mail interface                           |
 | Object storage for recordings (Hetzner Object Storage / R2) | External service  | To select (M2)       | Low-Med          | S3-compatible API keeps options open                    |
 
 ---
