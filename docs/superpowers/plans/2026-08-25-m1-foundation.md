@@ -1240,16 +1240,16 @@ TOKEN=$(grep better-auth.session_token /tmp/opencode/alice.txt | awk '{print $NF
 curl -s -X POST "http://localhost:3000/trpc/constellation.create" \
   -H "Content-Type: application/json" \
   -H "Cookie: better-auth.session_token=$TOKEN" \
-  -d '{"json":{"name":"Trading Fundamentals","slug":"trading-fundamentals","category":"trading"}}'
+  -d '{"name":"Trading Fundamentals","slug":"trading-fundamentals","category":"trading"}'
 ```
 
-Expected: `{"result":{"data":{"json":{"id":"<uuid>","slug":"trading-fundamentals"}}}}` (shape varies slightly by adapter — success means an `id` came back).
+Expected: a result envelope containing `{"id":"<uuid>","slug":"trading-fundamentals"}`. NOTE: this API uses tRPC's default identity transformer — bodies are RAW input JSON, not `{"json":...}` envelopes.
 
 Repeat Step 7.4 later tasks will reuse this pattern. Record the returned `id` as `$CID` for subsequent calls.
 
 - [ ] **Step 7.5: Bob requests the constellation through an invite link**
 
-As Alice: call `constellation.createInvite` (same pattern, input `{"json":{"constellationId":"$CID"}}`) → copy `url`. As Bob (his cookie): GET the `constellation.invitePreview` query URL with `?input={"json":{"token":"..."}}` then POST `constellation.acceptInvite`.
+As Alice: call `constellation.createInvite` (same pattern, raw-JSON body `{"constellationId":"$CID"}`; queries take `?input=<URL-encoded raw JSON>`) → copy `url`. As Bob (his cookie): GET the `constellation.invitePreview` query URL with `?input={"json":{"token":"..."}}` then POST `constellation.acceptInvite`.
 
 Expected: accept returns `{"slug":"trading-fundamentals"}`.
 
