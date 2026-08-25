@@ -14,30 +14,30 @@
 
 ## Critical Constraints (read first)
 
-1. **No SQL transactions.** The `neon-http` driver does not support them. Every multi-table write uses a *compensating write* pattern (insert parent → insert child → on child failure, delete parent). Never call `db.transaction(...)`.
+1. **No SQL transactions.** The `neon-http` driver does not support them. Every multi-table write uses a _compensating write_ pattern (insert parent → insert child → on child failure, delete parent). Never call `db.transaction(...)`.
 2. **Next.js 16 breaking changes.** Before writing any file under `apps/web/src/app`, read the relevant guide in `apps/web/node_modules/next/dist/docs/` (per `AGENTS.md`). Page props `params` are a Promise — `await` it in server components.
 3. **Repo style:** no code comments, follow existing file conventions exactly (text IDs via `$defaultFn(crypto.randomUUID())`, `timestamp()` without tz mode, zod v4 validation in every procedure input).
 4. **Auth roles take effect on next request** (FR-018) — no cache invalidation machinery needed; do not add any.
 
 ## File Structure
 
-| File | Responsibility |
-|------|----------------|
-| `packages/db/src/schema/community.ts` | Constellation/cluster/member/invite/request tables + enums |
-| `packages/db/src/schema/index.ts` | Re-export community schema |
-| `packages/db/src/schema/profile.ts` | `user_profile` table (bio, skills) |
-| `packages/api/src/permissions.ts` | Pure permission logic (no DB, fully unit-testable) |
-| `packages/api/test/permissions.test.ts` | Unit tests for permission logic |
-| `packages/api/src/routers/profile.ts` | Profile read/update |
-| `packages/api/src/routers/constellation.ts` | CRUD, publish, invites, members, roles |
-| `packages/api/src/routers/cluster.ts` | CRUD, access-filtered listing, join requests |
-| `packages/api/src/routers/index.ts` | Mount all three routers |
-| `apps/web/src/app/(app)/constellations/new/page.tsx` + `create-form.tsx` | Create constellation flow |
-| `apps/web/src/app/(app)/dashboard/dashboard.tsx` | Membership list + onboarding CTA (edit existing) |
-| `apps/web/src/app/c/[slug]/page.tsx` + `constellation-view.tsx` | Overview / Clusters / Members tabs |
-| `apps/web/src/app/c/[slug]/[clusterSlug]/page.tsx` + `cluster-view.tsx` | Cluster stub gated by access |
-| `apps/web/src/app/invite/[token]/page.tsx` + `invite-view.tsx` | Invitation acceptance |
-| `apps/server/scripts/seed.ts` | Demo data: two users, one constellation, mixed-visibility clusters |
+| File                                                                     | Responsibility                                                     |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| `packages/db/src/schema/community.ts`                                    | Constellation/cluster/member/invite/request tables + enums         |
+| `packages/db/src/schema/index.ts`                                        | Re-export community schema                                         |
+| `packages/db/src/schema/profile.ts`                                      | `user_profile` table (bio, skills)                                 |
+| `packages/api/src/permissions.ts`                                        | Pure permission logic (no DB, fully unit-testable)                 |
+| `packages/api/test/permissions.test.ts`                                  | Unit tests for permission logic                                    |
+| `packages/api/src/routers/profile.ts`                                    | Profile read/update                                                |
+| `packages/api/src/routers/constellation.ts`                              | CRUD, publish, invites, members, roles                             |
+| `packages/api/src/routers/cluster.ts`                                    | CRUD, access-filtered listing, join requests                       |
+| `packages/api/src/routers/index.ts`                                      | Mount all three routers                                            |
+| `apps/web/src/app/(app)/constellations/new/page.tsx` + `create-form.tsx` | Create constellation flow                                          |
+| `apps/web/src/app/(app)/dashboard/dashboard.tsx`                         | Membership list + onboarding CTA (edit existing)                   |
+| `apps/web/src/app/c/[slug]/page.tsx` + `constellation-view.tsx`          | Overview / Clusters / Members tabs                                 |
+| `apps/web/src/app/c/[slug]/[clusterSlug]/page.tsx` + `cluster-view.tsx`  | Cluster stub gated by access                                       |
+| `apps/web/src/app/invite/[token]/page.tsx` + `invite-view.tsx`           | Invitation acceptance                                              |
+| `apps/server/scripts/seed.ts`                                            | Demo data: two users, one constellation, mixed-visibility clusters |
 
 ---
 
@@ -65,6 +65,7 @@ Expected: exits 0. Fix nothing yet if it fails — report the pre-existing failu
 ### Task 1: Community schema
 
 **Files:**
+
 - Create: `packages/db/src/schema/community.ts`
 - Modify: `packages/db/src/schema/index.ts`
 
@@ -72,42 +73,15 @@ Expected: exits 0. Fix nothing yet if it fails — report the pre-existing failu
 
 ```ts
 import { relations } from "drizzle-orm";
-import {
-  index,
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { index, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 
-export const memberRoleEnum = pgEnum("member_role", [
-  "owner",
-  "navigator",
-  "moderator",
-  "member",
-]);
-export const constellationStatusEnum = pgEnum("constellation_status", [
-  "draft",
-  "published",
-]);
-export const clusterVisibilityEnum = pgEnum("cluster_visibility", [
-  "public",
-  "members",
-  "invite",
-]);
-export const clusterTypeEnum = pgEnum("cluster_type", [
-  "discussion",
-  "cohort",
-  "library",
-]);
-export const requestStatusEnum = pgEnum("request_status", [
-  "pending",
-  "approved",
-  "denied",
-]);
+export const memberRoleEnum = pgEnum("member_role", ["owner", "navigator", "moderator", "member"]);
+export const constellationStatusEnum = pgEnum("constellation_status", ["draft", "published"]);
+export const clusterVisibilityEnum = pgEnum("cluster_visibility", ["public", "members", "invite"]);
+export const clusterTypeEnum = pgEnum("cluster_type", ["discussion", "cohort", "library"]);
+export const requestStatusEnum = pgEnum("request_status", ["pending", "approved", "denied"]);
 
 const idColumn = () =>
   text("id")
@@ -192,9 +166,7 @@ export const cluster = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     ...timestamps,
   },
-  (t) => [
-    uniqueIndex("cluster_constellation_slug_uidx").on(t.constellationId, t.slug),
-  ],
+  (t) => [uniqueIndex("cluster_constellation_slug_uidx").on(t.constellationId, t.slug)],
 );
 
 export const clusterMember = pgTable(
@@ -243,19 +215,16 @@ export const constellationRelations = relations(constellation, ({ many }) => ({
   clusters: many(cluster),
 }));
 
-export const constellationMemberRelations = relations(
-  constellationMember,
-  ({ one }) => ({
-    constellation: one(constellation, {
-      fields: [constellationMember.constellationId],
-      references: [constellation.id],
-    }),
-    user: one(user, {
-      fields: [constellationMember.userId],
-      references: [user.id],
-    }),
+export const constellationMemberRelations = relations(constellationMember, ({ one }) => ({
+  constellation: one(constellation, {
+    fields: [constellationMember.constellationId],
+    references: [constellation.id],
   }),
-);
+  user: one(user, {
+    fields: [constellationMember.userId],
+    references: [user.id],
+  }),
+}));
 
 export const clusterRelations = relations(cluster, ({ one, many }) => ({
   constellation: one(constellation, {
@@ -301,6 +270,7 @@ git commit -m "feat(db): community schema for constellations, clusters, membersh
 ### Task 2: Profile schema
 
 **Files:**
+
 - Create: `packages/db/src/schema/profile.ts`
 - Modify: `packages/db/src/schema/index.ts`
 
@@ -347,6 +317,7 @@ git commit -m "feat(db): user profile table with bio and skills"
 ### Task 3: Permission module (TDD)
 
 **Files:**
+
 - Create: `packages/api/src/permissions.ts`
 - Test: `packages/api/test/permissions.test.ts`
 
@@ -355,11 +326,7 @@ git commit -m "feat(db): user profile table with bio and skills"
 ```ts
 import { describe, expect, test } from "bun:test";
 
-import {
-  canManageConstellation,
-  hasRole,
-  resolveClusterAccess,
-} from "../src/permissions";
+import { canManageConstellation, hasRole, resolveClusterAccess } from "../src/permissions";
 
 describe("hasRole", () => {
   test("ranks correctly", () => {
@@ -383,9 +350,7 @@ describe("resolveClusterAccess", () => {
   const base = { isClusterMember: false };
 
   test("non-members are always locked", () => {
-    expect(resolveClusterAccess({ ...base, role: null, visibility: "public" })).toBe(
-      "locked",
-    );
+    expect(resolveClusterAccess({ ...base, role: null, visibility: "public" })).toBe("locked");
   });
 
   test("moderators and above see everything", () => {
@@ -398,9 +363,7 @@ describe("resolveClusterAccess", () => {
   });
 
   test("public clusters granted to any constellation member", () => {
-    expect(resolveClusterAccess({ ...base, role: "member", visibility: "public" })).toBe(
-      "granted",
-    );
+    expect(resolveClusterAccess({ ...base, role: "member", visibility: "public" })).toBe("granted");
   });
 
   test("members-only is joinable, not granted", () => {
@@ -417,9 +380,7 @@ describe("resolveClusterAccess", () => {
   });
 
   test("invite-only stays locked without explicit grant", () => {
-    expect(resolveClusterAccess({ ...base, role: "member", visibility: "invite" })).toBe(
-      "locked",
-    );
+    expect(resolveClusterAccess({ ...base, role: "member", visibility: "invite" })).toBe("locked");
     expect(
       resolveClusterAccess({
         role: "member",
@@ -488,6 +449,7 @@ git commit -m "feat(api): pure permission module with unit tests"
 ### Task 4: Profile router
 
 **Files:**
+
 - Create: `packages/api/src/routers/profile.ts`
 - Modify: `packages/api/src/routers/index.ts`
 
@@ -526,10 +488,7 @@ export const profileRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       if (input.name !== undefined) {
-        await db
-          .update(user)
-          .set({ name: input.name })
-          .where(eq(user.id, ctx.session.user.id));
+        await db.update(user).set({ name: input.name }).where(eq(user.id, ctx.session.user.id));
       }
       const [current] = await db
         .select()
@@ -585,6 +544,7 @@ git commit -m "feat(api): profile router with bio and skills"
 ### Task 5: Constellation router — CRUD + publish
 
 **Files:**
+
 - Create: `packages/api/src/routers/constellation.ts`
 - Modify: `packages/api/src/routers/index.ts`
 
@@ -592,12 +552,7 @@ git commit -m "feat(api): profile router with bio and skills"
 
 ```ts
 import { db } from "@zentryx/db";
-import {
-  constellation,
-  constellationInvite,
-  constellationMember,
-  user,
-} from "@zentryx/db/schema";
+import { constellation, constellationInvite, constellationMember, user } from "@zentryx/db/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -612,7 +567,10 @@ const slugSchema = z
   .max(63)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "lowercase letters, numbers, hyphens");
 
-async function requireMembership(userId: string, constellationId: string): Promise<{ role: MemberRole; membershipId: string }> {
+async function requireMembership(
+  userId: string,
+  constellationId: string,
+): Promise<{ role: MemberRole; membershipId: string }> {
   const [row] = await db
     .select({ id: constellationMember.id, role: constellationMember.role })
     .from(constellationMember)
@@ -680,33 +638,31 @@ export const constellationRouter = router({
       return created;
     }),
 
-  getBySlug: publicProcedure
-    .input(z.object({ slug: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const [row] = await db
-        .select()
-        .from(constellation)
-        .where(eq(constellation.slug, input.slug))
+  getBySlug: publicProcedure.input(z.object({ slug: z.string() })).query(async ({ ctx, input }) => {
+    const [row] = await db
+      .select()
+      .from(constellation)
+      .where(eq(constellation.slug, input.slug))
+      .limit(1);
+    if (!row) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Constellation not found" });
+    }
+    let role: MemberRole | null = null;
+    if (ctx.session) {
+      const [membership] = await db
+        .select({ role: constellationMember.role })
+        .from(constellationMember)
+        .where(
+          and(
+            eq(constellationMember.userId, ctx.session.user.id),
+            eq(constellationMember.constellationId, row.id),
+          ),
+        )
         .limit(1);
-      if (!row) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Constellation not found" });
-      }
-      let role: MemberRole | null = null;
-      if (ctx.session) {
-        const [membership] = await db
-          .select({ role: constellationMember.role })
-          .from(constellationMember)
-          .where(
-            and(
-              eq(constellationMember.userId, ctx.session.user.id),
-              eq(constellationMember.constellationId, row.id),
-            ),
-          )
-          .limit(1);
-        role = membership?.role ?? null;
-      }
-      return { constellation: row, viewerRole: role };
-    }),
+      role = membership?.role ?? null;
+    }
+    return { constellation: row, viewerRole: role };
+  }),
 
   listMine: protectedProcedure.query(async ({ ctx }) => {
     return db
@@ -719,10 +675,7 @@ export const constellationRouter = router({
         role: constellationMember.role,
       })
       .from(constellationMember)
-      .innerJoin(
-        constellation,
-        eq(constellation.id, constellationMember.constellationId),
-      )
+      .innerJoin(constellation, eq(constellation.id, constellationMember.constellationId))
       .where(eq(constellationMember.userId, ctx.session.user.id))
       .orderBy(desc(constellationMember.createdAt));
   }),
@@ -789,26 +742,24 @@ export const constellationRouter = router({
       };
     }),
 
-  invitePreview: publicProcedure
-    .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const [row] = await db
-        .select({
-          name: constellation.name,
-          slug: constellation.slug,
-          expiresAt: constellationInvite.expiresAt,
-          invitedEmail: constellationInvite.invitedEmail,
-          acceptedAt: constellationInvite.acceptedAt,
-        })
-        .from(constellationInvite)
-        .innerJoin(constellation, eq(constellation.id, constellationInvite.constellationId))
-        .where(eq(constellationInvite.token, input.token))
-        .limit(1);
-      if (!row || row.acceptedAt !== null || row.expiresAt < new Date()) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Invitation invalid or expired" });
-      }
-      return row;
-    }),
+  invitePreview: publicProcedure.input(z.object({ token: z.string() })).query(async ({ input }) => {
+    const [row] = await db
+      .select({
+        name: constellation.name,
+        slug: constellation.slug,
+        expiresAt: constellationInvite.expiresAt,
+        invitedEmail: constellationInvite.invitedEmail,
+        acceptedAt: constellationInvite.acceptedAt,
+      })
+      .from(constellationInvite)
+      .innerJoin(constellation, eq(constellation.id, constellationInvite.constellationId))
+      .where(eq(constellationInvite.token, input.token))
+      .limit(1);
+    if (!row || row.acceptedAt !== null || row.expiresAt < new Date()) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Invitation invalid or expired" });
+    }
+    return row;
+  }),
 
   acceptInvite: protectedProcedure
     .input(z.object({ token: z.string() }))
@@ -944,6 +895,7 @@ git commit -m "feat(api): constellation router with invites, members, roles"
 ### Task 6: Cluster router
 
 **Files:**
+
 - Create: `packages/api/src/routers/cluster.ts`
 - Modify: `packages/api/src/routers/index.ts`
 
@@ -1103,7 +1055,13 @@ export const clusterRouter = router({
       const [cl] = await db.select().from(cluster).where(eq(cluster.id, input.clusterId)).limit(1);
       if (!cl) throw new TRPCError({ code: "NOT_FOUND" });
       const { role, grantedIds } = await viewerContext(ctx.session.user.id, cl.constellationId);
-      if (resolveClusterAccess({ role, visibility: cl.visibility, isClusterMember: grantedIds.has(cl.id) }) !== "joinable") {
+      if (
+        resolveClusterAccess({
+          role,
+          visibility: cl.visibility,
+          isClusterMember: grantedIds.has(cl.id),
+        }) !== "joinable"
+      ) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Cluster is not requestable" });
       }
       await db.insert(clusterJoinRequest).values({
@@ -1265,6 +1223,7 @@ curl -s -X POST http://localhost:3000/api/auth/sign-up/email \
   -c /tmp/opencode/bob.txt \
   -d '{"name":"Bob Member","email":"bob@example.com","password":"supersecret123"}' | head -c 200
 ```
+
 Expected: both return JSON containing `"user"` with matching emails.
 
 - [ ] **Step 7.4: Alice creates a constellation over tRPC (batched mutation with cookie)**
@@ -1278,6 +1237,7 @@ curl -s -X POST "http://localhost:3000/trpc/constellation.create" \
   -H "Cookie: better-auth.session_token=$TOKEN" \
   -d '{"json":{"name":"Trading Fundamentals","slug":"trading-fundamentals","category":"trading"}}'
 ```
+
 Expected: `{"result":{"data":{"json":{"id":"<uuid>","slug":"trading-fundamentals"}}}}` (shape varies slightly by adapter — success means an `id` came back).
 
 Repeat Step 7.4 later tasks will reuse this pattern. Record the returned `id` as `$CID` for subsequent calls.
@@ -1301,6 +1261,7 @@ git tag m1-api-smoke-ok
 > Before editing: skim `apps/web/node_modules/next/dist/docs/` for App Router + async `params` conventions. Existing patterns to copy: `apps/web/src/app/dashboard/` (server page + client component split) and `useQuery(trpc.x.y.queryOptions())` usage in `dashboard.tsx`.
 
 **Files:**
+
 - Create: `apps/web/src/app/constellations/new/page.tsx`
 - Create: `apps/web/src/app/constellations/new/create-form.tsx`
 
@@ -1328,6 +1289,7 @@ git commit -m "feat(web): create constellation form"
 ### Task 9: Web — dashboard membership list + onboarding CTA
 
 **Files:**
+
 - Modify: `apps/web/src/app/dashboard/dashboard.tsx`
 
 - [ ] **Step 9.1: Extend dashboard**
@@ -1348,6 +1310,7 @@ git commit -m "feat(web): dashboard memberships with onboarding CTA"
 ### Task 10: Web — constellation page (tabs, clusters, members, approvals, invites)
 
 **Files:**
+
 - Create: `apps/web/src/app/c/[slug]/page.tsx` (server: `await params`, session guard, renders client view)
 - Create: `apps/web/src/app/c/[slug]/constellation-view.tsx` (client)
 
@@ -1362,10 +1325,11 @@ Simple local-state tabs (no new deps): **Overview** (name/description/category/s
 - [ ] **Step 10.3: Clusters tab (the exit-criterion surface)**
 
 Each cluster row shows name, type badge, visibility badge, and behavior driven strictly by `access`:
+
 - `granted` → Link to `/c/{slug}/{clusterSlug}`
 - `joinable` → "Request access" button calling `cluster.requestAccess` (disabled with "Requested" after `getBySlug` refetch shows `hasPendingRequest`)
 - `locked` → lock icon + "Invite-only"
-Plus a "New cluster" dialog for `viewerRole ∈ {owner, navigator}` (fields mirror `cluster.create` input).
+  Plus a "New cluster" dialog for `viewerRole ∈ {owner, navigator}` (fields mirror `cluster.create` input).
 
 - [ ] **Step 10.4: Members tab**
 
@@ -1387,6 +1351,7 @@ git commit -m "feat(web): constellation page with clusters, members, approvals, 
 ### Task 11: Web — invitation acceptance page
 
 **Files:**
+
 - Create: `apps/web/src/app/invite/[token]/page.tsx` + `invite-view.tsx`
 
 - [ ] **Step 11.1: Implement**
@@ -1407,6 +1372,7 @@ git commit -m "feat(web): invitation acceptance flow"
 ### Task 12: Web — cluster detail stub
 
 **Files:**
+
 - Create: `apps/web/src/app/c/[slug]/[clusterSlug]/page.tsx` + `cluster-view.tsx`
 
 - [ ] **Step 12.1: Implement**
@@ -1427,6 +1393,7 @@ git commit -m "feat(web): cluster detail stub gated by access level"
 ### Task 13: Seed script
 
 **Files:**
+
 - Create: `apps/server/scripts/seed.ts`
 
 - [ ] **Step 13.1: Write seed**
@@ -1450,6 +1417,7 @@ git commit -m "chore(server): idempotent demo seed script"
 ### Task 14: Deployment runbook (NFR-006)
 
 **Files:**
+
 - Create: `docs/deploy-m1.md`
 
 - [ ] **Step 14.1: Write the runbook** covering:
@@ -1483,9 +1451,9 @@ git commit -m "docs: M1 deployment runbook for Hetzner/Coolify + Neon"
 
 ## Deliberately deferred out of M1 (recorded, not forgotten)
 
-| Item | PRD ref | Deferral rationale |
-|------|---------|--------------------|
+| Item                                           | PRD ref   | Deferral rationale                                                                                                                                                                                                 |
+| ---------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Email verification + password reset end-to-end | FR-016 AC | Requires transactional-email provider selection (PRD dependency table slots this at M1, but no provider is chosen yet). First task of M2 once Resend-class provider is picked; Better Auth supports both natively. |
-| Join-request outcome notifications | FR-004 AC | In-app/email notification center is Epic 6 (M3). Until then, approval is visible via the cluster list refetch. |
-| Cluster-type-specific layouts | FR-003 AC | Cluster pages are stubs until live/chat arrives in M2; type badge renders in lists now, layout differentiation lands with real content surfaces. |
-| Public discovery of published constellations | FR-001 AC | Search/discovery is Epic 5 (v1.x); publishing state is stored and enforced from day one. |
+| Join-request outcome notifications             | FR-004 AC | In-app/email notification center is Epic 6 (M3). Until then, approval is visible via the cluster list refetch.                                                                                                     |
+| Cluster-type-specific layouts                  | FR-003 AC | Cluster pages are stubs until live/chat arrives in M2; type badge renders in lists now, layout differentiation lands with real content surfaces.                                                                   |
+| Public discovery of published constellations   | FR-001 AC | Search/discovery is Epic 5 (v1.x); publishing state is stored and enforced from day one.                                                                                                                           |
