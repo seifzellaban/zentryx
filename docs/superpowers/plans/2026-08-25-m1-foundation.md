@@ -179,12 +179,15 @@ export const clusterMember = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    grantedById: text("granted_by_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    grantedById: text("granted_by_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     ...timestamps,
   },
-  (t) => [uniqueIndex("cluster_member_uidx").on(t.clusterId, t.userId)],
+  (t) => [
+    uniqueIndex("cluster_member_uidx").on(t.clusterId, t.userId),
+    index("cluster_member_user_idx").on(t.userId),
+  ],
 );
 
 export const clusterJoinRequest = pgTable(
