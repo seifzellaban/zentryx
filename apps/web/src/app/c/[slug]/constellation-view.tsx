@@ -701,7 +701,6 @@ function MembersTab({
         ) : (
           <ul className="divide-y divide-border">
             {membersQuery.data.map((member) => {
-              const isOwnOwnerRow = viewerRole === "owner" && member.userId === currentUserId;
               return (
                 <li
                   key={member.membershipId}
@@ -732,16 +731,20 @@ function MembersTab({
                     ) : (
                       <span className={badgeClasses}>{member.role}</span>
                     )}
-                    {isModeratorPlus && !isOwnOwnerRow && (
-                      <Button
-                        size="xs"
-                        variant="destructive"
-                        disabled={removeMember.isPending}
-                        onClick={() => removeMember.mutate({ membershipId: member.membershipId })}
-                      >
-                        Remove
-                      </Button>
-                    )}
+                    {canManage &&
+                      !(
+                        member.role === "owner" &&
+                        (viewerRole !== "owner" || member.userId === currentUserId)
+                      ) && (
+                        <Button
+                          size="xs"
+                          variant="destructive"
+                          disabled={removeMember.isPending}
+                          onClick={() => removeMember.mutate({ membershipId: member.membershipId })}
+                        >
+                          Remove
+                        </Button>
+                      )}
                   </div>
                 </li>
               );
