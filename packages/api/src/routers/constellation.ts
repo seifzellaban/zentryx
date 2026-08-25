@@ -20,7 +20,10 @@ const slugSchema = z
   .max(63)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "lowercase letters, numbers, hyphens");
 
-async function requireMembership(userId: string, constellationId: string): Promise<{ role: MemberRole; membershipId: string }> {
+async function requireMembership(
+  userId: string,
+  constellationId: string,
+): Promise<{ role: MemberRole; membershipId: string }> {
   const [row] = await db
     .select({ id: constellationMember.id, role: constellationMember.role })
     .from(constellationMember)
@@ -95,33 +98,31 @@ export const constellationRouter = router({
       return created;
     }),
 
-  getBySlug: publicProcedure
-    .input(z.object({ slug: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const [row] = await db
-        .select()
-        .from(constellation)
-        .where(eq(constellation.slug, input.slug))
+  getBySlug: publicProcedure.input(z.object({ slug: z.string() })).query(async ({ ctx, input }) => {
+    const [row] = await db
+      .select()
+      .from(constellation)
+      .where(eq(constellation.slug, input.slug))
+      .limit(1);
+    if (!row) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Constellation not found" });
+    }
+    let role: MemberRole | null = null;
+    if (ctx.session) {
+      const [membership] = await db
+        .select({ role: constellationMember.role })
+        .from(constellationMember)
+        .where(
+          and(
+            eq(constellationMember.userId, ctx.session.user.id),
+            eq(constellationMember.constellationId, row.id),
+          ),
+        )
         .limit(1);
-      if (!row) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Constellation not found" });
-      }
-      let role: MemberRole | null = null;
-      if (ctx.session) {
-        const [membership] = await db
-          .select({ role: constellationMember.role })
-          .from(constellationMember)
-          .where(
-            and(
-              eq(constellationMember.userId, ctx.session.user.id),
-              eq(constellationMember.constellationId, row.id),
-            ),
-          )
-          .limit(1);
-        role = membership?.role ?? null;
-      }
-      return { constellation: row, viewerRole: role };
-    }),
+      role = membership?.role ?? null;
+    }
+    return { constellation: row, viewerRole: role };
+  }),
 
   listMine: protectedProcedure.query(async ({ ctx }) => {
     return db
@@ -134,10 +135,7 @@ export const constellationRouter = router({
         role: constellationMember.role,
       })
       .from(constellationMember)
-      .innerJoin(
-        constellation,
-        eq(constellation.id, constellationMember.constellationId),
-      )
+      .innerJoin(constellation, eq(constellation.id, constellationMember.constellationId))
       .where(eq(constellationMember.userId, ctx.session.user.id))
       .orderBy(desc(constellationMember.createdAt));
   }),
@@ -163,17 +161,15 @@ export const constellationRouter = router({
       return updated;
     }),
 
-  publish: protectedProcedure
-    .input(z.object({ id: z.uuid() }))
-    .mutation(async ({ ctx, input }) => {
-      await requireManager(ctx.session.user.id, input.id);
-      const [updated] = await db
-        .update(constellation)
-        .set({ status: "published" })
-        .where(and(eq(constellation.id, input.id), eq(constellation.status, "draft")))
-        .returning({ id: constellation.id, status: constellation.status });
-      return updated;
-    }),
+  publish: protectedProcedure.input(z.object({ id: z.uuid() })).mutation(async ({ ctx, input }) => {
+    await requireManager(ctx.session.user.id, input.id);
+    const [updated] = await db
+      .update(constellation)
+      .set({ status: "published" })
+      .where(and(eq(constellation.id, input.id), eq(constellation.status, "draft")))
+      .returning({ id: constellation.id, status: constellation.status });
+    return updated;
+  }),
 
   createInvite: protectedProcedure
     .input(
@@ -210,26 +206,24 @@ export const constellationRouter = router({
       };
     }),
 
-  invitePreview: publicProcedure
-    .input(z.object({ token: z.string() }))
-    .query(async ({ input }) => {
-      const [row] = await db
-        .select({
-          name: constellation.name,
-          slug: constellation.slug,
-          expiresAt: constellationInvite.expiresAt,
-          invitedEmail: constellationInvite.invitedEmail,
-          acceptedAt: constellationInvite.acceptedAt,
-        })
-        .from(constellationInvite)
-        .innerJoin(constellation, eq(constellation.id, constellationInvite.constellationId))
-        .where(eq(constellationInvite.token, input.token))
-        .limit(1);
-      if (!row || row.acceptedAt !== null || row.expiresAt < new Date()) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Invitation invalid or expired" });
-      }
-      return row;
-    }),
+  invitePreview: publicProcedure.input(z.object({ token: z.string() })).query(async ({ input }) => {
+    const [row] = await db
+      .select({
+        name: constellation.name,
+        slug: constellation.slug,
+        expiresAt: constellationInvite.expiresAt,
+        invitedEmail: constellationInvite.invitedEmail,
+        acceptedAt: constellationInvite.acceptedAt,
+      })
+      .from(constellationInvite)
+      .innerJoin(constellation, eq(constellation.id, constellationInvite.constellationId))
+      .where(eq(constellationInvite.token, input.token))
+      .limit(1);
+    if (!row || row.acceptedAt !== null || row.expiresAt < new Date()) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Invitation invalid or expired" });
+    }
+    return row;
+  }),
 
   acceptInvite: protectedProcedure
     .input(z.object({ token: z.string() }))

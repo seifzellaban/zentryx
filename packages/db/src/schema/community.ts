@@ -1,40 +1,13 @@
 import { relations } from "drizzle-orm";
-import {
-  index,
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { index, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 
-export const memberRoleEnum = pgEnum("member_role", [
-  "owner",
-  "navigator",
-  "moderator",
-  "member",
-]);
-export const constellationStatusEnum = pgEnum("constellation_status", [
-  "draft",
-  "published",
-]);
-export const clusterVisibilityEnum = pgEnum("cluster_visibility", [
-  "public",
-  "members",
-  "invite",
-]);
-export const clusterTypeEnum = pgEnum("cluster_type", [
-  "discussion",
-  "cohort",
-  "library",
-]);
-export const requestStatusEnum = pgEnum("request_status", [
-  "pending",
-  "approved",
-  "denied",
-]);
+export const memberRoleEnum = pgEnum("member_role", ["owner", "navigator", "moderator", "member"]);
+export const constellationStatusEnum = pgEnum("constellation_status", ["draft", "published"]);
+export const clusterVisibilityEnum = pgEnum("cluster_visibility", ["public", "members", "invite"]);
+export const clusterTypeEnum = pgEnum("cluster_type", ["discussion", "cohort", "library"]);
+export const requestStatusEnum = pgEnum("request_status", ["pending", "approved", "denied"]);
 
 const idColumn = () =>
   text("id")
@@ -119,9 +92,7 @@ export const cluster = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     ...timestamps,
   },
-  (t) => [
-    uniqueIndex("cluster_constellation_slug_uidx").on(t.constellationId, t.slug),
-  ],
+  (t) => [uniqueIndex("cluster_constellation_slug_uidx").on(t.constellationId, t.slug)],
 );
 
 export const clusterMember = pgTable(
@@ -173,19 +144,16 @@ export const constellationRelations = relations(constellation, ({ many }) => ({
   clusters: many(cluster),
 }));
 
-export const constellationMemberRelations = relations(
-  constellationMember,
-  ({ one }) => ({
-    constellation: one(constellation, {
-      fields: [constellationMember.constellationId],
-      references: [constellation.id],
-    }),
-    user: one(user, {
-      fields: [constellationMember.userId],
-      references: [user.id],
-    }),
+export const constellationMemberRelations = relations(constellationMember, ({ one }) => ({
+  constellation: one(constellation, {
+    fields: [constellationMember.constellationId],
+    references: [constellation.id],
   }),
-);
+  user: one(user, {
+    fields: [constellationMember.userId],
+    references: [user.id],
+  }),
+}));
 
 export const clusterRelations = relations(cluster, ({ one, many }) => ({
   constellation: one(constellation, {

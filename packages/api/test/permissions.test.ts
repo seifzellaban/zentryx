@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  canManageConstellation,
-  hasRole,
-  resolveClusterAccess,
-} from "../src/permissions";
+import { canManageConstellation, hasRole, resolveClusterAccess } from "../src/permissions";
 
 describe("hasRole", () => {
   test("ranks correctly", () => {
@@ -28,12 +24,10 @@ describe("resolveClusterAccess", () => {
   const base = { isClusterMember: false };
 
   test("non-members are always locked", () => {
-    expect(resolveClusterAccess({ ...base, role: null, visibility: "public" })).toBe(
+    expect(resolveClusterAccess({ ...base, role: null, visibility: "public" })).toBe("locked");
+    expect(resolveClusterAccess({ role: null, visibility: "invite", isClusterMember: true })).toBe(
       "locked",
     );
-    expect(
-      resolveClusterAccess({ role: null, visibility: "invite", isClusterMember: true }),
-    ).toBe("locked");
   });
 
   test("moderators and above see everything", () => {
@@ -46,9 +40,7 @@ describe("resolveClusterAccess", () => {
   });
 
   test("public clusters granted to any constellation member", () => {
-    expect(resolveClusterAccess({ ...base, role: "member", visibility: "public" })).toBe(
-      "granted",
-    );
+    expect(resolveClusterAccess({ ...base, role: "member", visibility: "public" })).toBe("granted");
   });
 
   test("members-only is joinable, not granted", () => {
@@ -65,9 +57,7 @@ describe("resolveClusterAccess", () => {
   });
 
   test("invite-only stays locked without explicit grant", () => {
-    expect(resolveClusterAccess({ ...base, role: "member", visibility: "invite" })).toBe(
-      "locked",
-    );
+    expect(resolveClusterAccess({ ...base, role: "member", visibility: "invite" })).toBe("locked");
     expect(
       resolveClusterAccess({
         role: "member",

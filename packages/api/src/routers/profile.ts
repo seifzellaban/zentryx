@@ -30,11 +30,7 @@ export const profileRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      if (
-        input.name === undefined &&
-        input.bio === undefined &&
-        input.skills === undefined
-      ) {
+      if (input.name === undefined && input.bio === undefined && input.skills === undefined) {
         const [current] = await db
           .select()
           .from(userProfile)
@@ -47,10 +43,7 @@ export const profileRouter = router({
         };
       }
       if (input.name !== undefined) {
-        await db
-          .update(user)
-          .set({ name: input.name })
-          .where(eq(user.id, ctx.session.user.id));
+        await db.update(user).set({ name: input.name }).where(eq(user.id, ctx.session.user.id));
       }
       const [current] = await db
         .select()
