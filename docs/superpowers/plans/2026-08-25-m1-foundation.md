@@ -14,7 +14,7 @@
 
 ## Critical Constraints (read first)
 
-1. **No SQL transactions.** The `neon-http` driver does not support them. Every multi-table write uses a _compensating write_ pattern (insert parent → insert child → on child failure, delete parent). Never call `db.transaction(...)`.
+1. **No SQL transactions.** The `neon-http` driver does not support them. Every multi-table write uses a _compensating write_ pattern (insert parent → insert child → on child failure, delete parent). Never call `db.transaction(...)`. **Documented exception:** `profile.update`'s user-name + profile-upsert pair is intentionally uncompensated — both writes are idempotent, same-owner, and independently retriable, so partial application self-heals on retry without data loss. Compensation remains mandatory wherever partial state is unrecoverable or user-visible to others (e.g., `constellation.create`).
 2. **Next.js 16 breaking changes.** Before writing any file under `apps/web/src/app`, read the relevant guide in `apps/web/node_modules/next/dist/docs/` (per `AGENTS.md`). Page props `params` are a Promise — `await` it in server components.
 3. **Repo style:** no code comments, follow existing file conventions exactly (text IDs via `$defaultFn(crypto.randomUUID())`, `timestamp()` without tz mode, zod v4 validation in every procedure input).
 4. **Auth roles take effect on next request** (FR-018) — no cache invalidation machinery needed; do not add any.
