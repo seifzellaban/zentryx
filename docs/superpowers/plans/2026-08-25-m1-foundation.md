@@ -459,7 +459,8 @@ git commit -m "feat(api): pure permission module with unit tests"
 - [ ] **Step 4.1: Write `packages/api/src/routers/profile.ts`**
 
 ```ts
-import { db, user, userProfile } from "@zentryx/db";
+import { db } from "@zentryx/db";
+import { user, userProfile } from "@zentryx/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 

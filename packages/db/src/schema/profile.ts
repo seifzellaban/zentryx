@@ -14,3 +14,5 @@ export const userProfile = pgTable("user_profile", {
 export const userProfileRelations = relations(userProfile, ({ one }) => ({
   user: one(user, { fields: [userProfile.userId], references: [user.id] }),
 }));
+
+export type UserProfile = typeof userProfile.$inferSelect;
