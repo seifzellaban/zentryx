@@ -38,7 +38,9 @@ async function viewerContext(userId: string, constellationId: string) {
     .select({ clusterId: clusterMember.clusterId })
     .from(clusterMember)
     .innerJoin(cluster, eq(cluster.id, clusterMember.clusterId))
-    .where(eq(clusterMember.userId, userId));
+    .where(
+      and(eq(clusterMember.userId, userId), eq(cluster.constellationId, constellationId)),
+    );
   return { role: membership.role, grantedIds: new Set(grants.map((g) => g.clusterId)) };
 }
 
@@ -69,18 +71,26 @@ export const clusterRouter = router({
       if (dup.length > 0) {
         throw new TRPCError({ code: "CONFLICT", message: "Cluster slug already used" });
       }
-      const [created] = await db
-        .insert(cluster)
-        .values({
-          constellationId: input.constellationId,
-          name: input.name,
-          slug: input.slug,
-          description: input.description,
-          visibility: input.visibility,
-          type: input.type,
-          createdById: ctx.session.user.id,
-        })
-        .returning();
+      let created: typeof cluster.$inferSelect | undefined;
+      try {
+        [created] = await db
+          .insert(cluster)
+          .values({
+            constellationId: input.constellationId,
+            name: input.name,
+            slug: input.slug,
+            description: input.description,
+            visibility: input.visibility,
+            type: input.type,
+            createdById: ctx.session.user.id,
+          })
+          .returning();
+      } catch (err) {
+        if ((err as { code?: string })?.code === "23505") {
+          throw new TRPCError({ code: "CONFLICT", message: "Cluster slug already used" });
+        }
+        throw err;
+      }
       if (!created) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       return created;
     }),
@@ -178,7 +188,10 @@ export const clusterRouter = router({
   pendingRequests: protectedProcedure
     .input(z.object({ constellationId: z.uuid() }))
     .query(async ({ ctx, input }) => {
-      await viewerContext(ctx.session.user.id, input.constellationId);
+      const { role } = await viewerContext(ctx.session.user.id, input.constellationId);
+      if (role !== "owner" && role !== "navigator" && role !== "moderator") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Moderator role required" });
+      }
       const rows = await db
         .select({
           requestId: clusterJoinRequest.id,
