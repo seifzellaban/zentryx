@@ -86,7 +86,10 @@ export const clusterRouter = router({
           })
           .returning();
       } catch (err) {
-        if ((err as { code?: string })?.code === "23505") {
+        const pgCode =
+          (err as { code?: string })?.code ??
+          (err as { cause?: { code?: string } })?.cause?.code;
+        if (pgCode === "23505") {
           throw new TRPCError({ code: "CONFLICT", message: "Cluster slug already used" });
         }
         throw err;
@@ -177,7 +180,10 @@ export const clusterRouter = router({
           userId: ctx.session.user.id,
         });
       } catch (err) {
-        if ((err as { code?: string })?.code === "23505") {
+        const pgCode =
+          (err as { code?: string })?.code ??
+          (err as { cause?: { code?: string } })?.cause?.code;
+        if (pgCode === "23505") {
           throw new TRPCError({ code: "CONFLICT", message: "Request already exists" });
         }
         throw err;
