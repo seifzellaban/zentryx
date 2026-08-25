@@ -6,7 +6,7 @@ import {
   user,
   type MemberRole,
 } from "@zentryx/db/schema";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -93,7 +93,14 @@ export const constellationRouter = router({
         });
       } catch (err) {
         if (created) {
-          await db.delete(constellation).where(eq(constellation.id, created.id));
+          try {
+            await db.delete(constellation).where(eq(constellation.id, created.id));
+          } catch {
+            void 0;
+          }
+        }
+        if ((err as { code?: string })?.code === "23505") {
+          throw new TRPCError({ code: "CONFLICT", message: "Slug already taken" });
         }
         throw err;
       }
@@ -144,13 +151,22 @@ export const constellationRouter = router({
 
   update: protectedProcedure
     .input(
-      z.object({
-        id: z.uuid(),
-        name: z.string().min(3).max(80).optional(),
-        description: z.string().max(1000).optional(),
-        category: z.string().max(40).optional(),
-        coverImage: z.url().optional(),
-      }),
+      z
+        .object({
+          id: z.uuid(),
+          name: z.string().min(3).max(80).optional(),
+          description: z.string().max(1000).optional(),
+          category: z.string().max(40).optional(),
+          coverImage: z.url().optional(),
+        })
+        .refine(
+          (patch) =>
+            patch.name !== undefined ||
+            patch.description !== undefined ||
+            patch.category !== undefined ||
+            patch.coverImage !== undefined,
+          { message: "No changes provided" },
+        ),
     )
     .mutation(async ({ ctx, input }) => {
       await requireManager(ctx.session.user.id, input.id);
@@ -237,11 +253,18 @@ export const constellationRouter = router({
         .limit(1);
       if (
         !invite ||
-        invite.acceptedAt !== null ||
         invite.expiresAt < new Date() ||
         (invite.invitedEmail !== null &&
           invite.invitedEmail.toLowerCase() !== ctx.session.user.email.toLowerCase())
       ) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Invitation cannot be accepted" });
+      }
+      const claimed = await db
+        .update(constellationInvite)
+        .set({ acceptedAt: new Date() })
+        .where(and(eq(constellationInvite.id, invite.id), isNull(constellationInvite.acceptedAt)))
+        .returning({ id: constellationInvite.id });
+      if (claimed.length === 0) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Invitation cannot be accepted" });
       }
       await db
@@ -252,16 +275,15 @@ export const constellationRouter = router({
           role: invite.role,
         })
         .onConflictDoNothing();
-      await db
-        .update(constellationInvite)
-        .set({ acceptedAt: new Date() })
-        .where(eq(constellationInvite.id, invite.id));
       const [c] = await db
         .select({ slug: constellation.slug })
         .from(constellation)
         .where(eq(constellation.id, invite.constellationId))
         .limit(1);
-      return { slug: c?.slug ?? "" };
+      if (!c) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      }
+      return { slug: c.slug };
     }),
 
   members: protectedProcedure
@@ -330,6 +352,9 @@ export const constellationRouter = router({
         .limit(1);
       if (!target) throw new TRPCError({ code: "NOT_FOUND" });
       const caller = await requireMembership(ctx.session.user.id, target.constellationId);
+      if (!canManageConstellation(caller.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Navigator role required" });
+      }
       if (target.role === "owner" && caller.role !== "owner") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
