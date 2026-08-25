@@ -1190,7 +1190,7 @@ export type AppRouter = typeof appRouter;
 
 - [ ] **Step 6.3: Typecheck + unit tests**
 
-Run: `bun run check-types && bun test packages/api`
+Run: `bun run check-types && bun test packages/api/test`
 Expected: types pass; `12 pass`.
 
 - [ ] **Step 6.4: Commit**
