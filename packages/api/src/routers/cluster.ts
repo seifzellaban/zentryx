@@ -38,9 +38,7 @@ async function viewerContext(userId: string, constellationId: string) {
     .select({ clusterId: clusterMember.clusterId })
     .from(clusterMember)
     .innerJoin(cluster, eq(cluster.id, clusterMember.clusterId))
-    .where(
-      and(eq(clusterMember.userId, userId), eq(cluster.constellationId, constellationId)),
-    );
+    .where(and(eq(clusterMember.userId, userId), eq(cluster.constellationId, constellationId)));
   return { role: membership.role, grantedIds: new Set(grants.map((g) => g.clusterId)) };
 }
 
@@ -87,8 +85,7 @@ export const clusterRouter = router({
           .returning();
       } catch (err) {
         const pgCode =
-          (err as { code?: string })?.code ??
-          (err as { cause?: { code?: string } })?.cause?.code;
+          (err as { code?: string })?.code ?? (err as { cause?: { code?: string } })?.cause?.code;
         if (pgCode === "23505") {
           throw new TRPCError({ code: "CONFLICT", message: "Cluster slug already used" });
         }
@@ -181,8 +178,7 @@ export const clusterRouter = router({
         });
       } catch (err) {
         const pgCode =
-          (err as { code?: string })?.code ??
-          (err as { cause?: { code?: string } })?.cause?.code;
+          (err as { code?: string })?.code ?? (err as { cause?: { code?: string } })?.cause?.code;
         if (pgCode === "23505") {
           throw new TRPCError({ code: "CONFLICT", message: "Request already exists" });
         }

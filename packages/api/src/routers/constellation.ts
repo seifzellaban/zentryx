@@ -100,8 +100,7 @@ export const constellationRouter = router({
           }
         }
         const pgCode =
-          (err as { code?: string })?.code ??
-          (err as { cause?: { code?: string } })?.cause?.code;
+          (err as { code?: string })?.code ?? (err as { cause?: { code?: string } })?.cause?.code;
         if (pgCode === "23505") {
           throw new TRPCError({ code: "CONFLICT", message: "Slug already taken" });
         }

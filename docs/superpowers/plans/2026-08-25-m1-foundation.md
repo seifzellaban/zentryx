@@ -1256,6 +1256,7 @@ Expected: accept returns `{"slug":"trading-fundamentals"}`.
 - [ ] **Step 7.5b: Negative-path authorization checks (FR-018 enforcement)**
 
 With cookies for Bob (plain member) and a third account Charlie:
+
 1. Bob calls `constellation.setMemberRole` with any membership id → expect FORBIDDEN error, not success
 2. Bob calls `constellation.removeMember` on Alice's membership → expect FORBIDDEN
 3. Bob calls `constellation.createInvite` → expect FORBIDDEN (member cannot invite)
