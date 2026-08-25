@@ -29,6 +29,8 @@ const CLUSTERS = [
 type Mark = "created" | "reused";
 const createdSlugs: string[] = [];
 const reusedSlugs: string[] = [];
+const createdMemberships: string[] = [];
+const reusedMemberships: string[] = [];
 const emails: string[] = [];
 
 function mark(slug: string, status: Mark) {
@@ -36,6 +38,14 @@ function mark(slug: string, status: Mark) {
     createdSlugs.push(slug);
   } else {
     reusedSlugs.push(slug);
+  }
+}
+
+function markMembership(label: string, status: Mark) {
+  if (status === "created") {
+    createdMemberships.push(label);
+  } else {
+    reusedMemberships.push(label);
   }
 }
 
@@ -62,9 +72,27 @@ async function ensureUser(name: string, email: string): Promise<string> {
   }
 }
 
+async function ensureMembership(constellationId: string, userId: string, role: "owner" | "member", label: string) {
+  const existing = await db
+    .select({ id: constellationMember.id })
+    .from(constellationMember)
+    .where(
+      and(eq(constellationMember.constellationId, constellationId), eq(constellationMember.userId, userId)),
+    )
+    .limit(1);
+
+  if (existing[0]) {
+    markMembership(label, "reused");
+    return;
+  }
+
+  await db.insert(constellationMember).values({ constellationId, userId, role });
+  markMembership(label, "created");
+}
+
 async function main() {
   const navId = await ensureUser("Demo Navigator", "demo-nav@zentryx.dev");
-  await ensureUser("Demo Member", "demo-member@zentryx.dev");
+  const memberId = await ensureUser("Demo Member", "demo-member@zentryx.dev");
 
   let constellationId: string;
   const existingConstellation = await db
@@ -91,24 +119,8 @@ async function main() {
     mark(CONSTELLATION_SLUG, "created");
   }
 
-  const navMembership = await db
-    .select({ id: constellationMember.id })
-    .from(constellationMember)
-    .where(
-      and(
-        eq(constellationMember.constellationId, constellationId),
-        eq(constellationMember.userId, navId),
-      ),
-    )
-    .limit(1);
-
-  if (!navMembership[0]) {
-    await db.insert(constellationMember).values({
-      constellationId,
-      userId: navId,
-      role: "owner",
-    });
-  }
+  await ensureMembership(constellationId, navId, "owner", "demo-nav@zentryx.dev:owner");
+  await ensureMembership(constellationId, memberId, "member", "demo-member@zentryx.dev:member");
 
   for (const definition of CLUSTERS) {
     const existing = await db
@@ -133,7 +145,19 @@ async function main() {
     mark(definition.slug, "created");
   }
 
-  console.log(JSON.stringify({ users: emails.sort(), created: createdSlugs, reused: reusedSlugs }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        users: emails.sort(),
+        created: createdSlugs,
+        reused: reusedSlugs,
+        membershipsCreated: createdMemberships,
+        membershipsReused: reusedMemberships,
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 main()
