@@ -132,6 +132,9 @@ export const constellationRouter = router({
         .limit(1);
       role = membership?.role ?? null;
     }
+    if (row.status === "draft" && (role === null || !canManageConstellation(role))) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Constellation not found" });
+    }
     return { constellation: row, viewerRole: role };
   }),
 
@@ -362,6 +365,20 @@ export const constellationRouter = router({
       }
       if (target.userId === ctx.session.user.id && target.role === "owner") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Owners cannot remove themselves" });
+      }
+      if (target.role === "owner") {
+        const [row] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(constellationMember)
+          .where(
+            and(
+              eq(constellationMember.constellationId, target.constellationId),
+              eq(constellationMember.role, "owner"),
+            ),
+          );
+        if ((row?.count ?? 0) <= 1) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot remove the last owner" });
+        }
       }
       await db.delete(constellationMember).where(eq(constellationMember.id, input.membershipId));
       return { ok: true };

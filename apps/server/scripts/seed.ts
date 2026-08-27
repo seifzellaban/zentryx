@@ -21,9 +21,24 @@ const { cluster, constellation, constellationMember, user } = await import("@zen
 const DEMO_PASSWORD = "zentryx-demo-1";
 const CONSTELLATION_SLUG = "demo-constellation";
 const CLUSTERS = [
-  { slug: "open-lounge", name: "Open Lounge", visibility: "public" as const, type: "discussion" as const },
-  { slug: "live-trading", name: "Live Trading", visibility: "members" as const, type: "cohort" as const },
-  { slug: "mentors-lounge", name: "Mentors Lounge", visibility: "invite" as const, type: "discussion" as const },
+  {
+    slug: "open-lounge",
+    name: "Open Lounge",
+    visibility: "public" as const,
+    type: "discussion" as const,
+  },
+  {
+    slug: "live-trading",
+    name: "Live Trading",
+    visibility: "members" as const,
+    type: "cohort" as const,
+  },
+  {
+    slug: "mentors-lounge",
+    name: "Mentors Lounge",
+    visibility: "invite" as const,
+    type: "discussion" as const,
+  },
 ];
 
 type Mark = "created" | "reused";
@@ -65,19 +80,31 @@ async function ensureUser(name: string, email: string): Promise<string> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (!message.toLowerCase().includes("already exists")) throw error;
-    const existing = await db.select({ id: user.id }).from(user).where(eq(user.email, email)).limit(1);
+    const existing = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.email, email))
+      .limit(1);
     if (!existing[0]) throw error;
     emails.push(email);
     return existing[0].id;
   }
 }
 
-async function ensureMembership(constellationId: string, userId: string, role: "owner" | "member", label: string) {
+async function ensureMembership(
+  constellationId: string,
+  userId: string,
+  role: "owner" | "member",
+  label: string,
+) {
   const existing = await db
     .select({ id: constellationMember.id })
     .from(constellationMember)
     .where(
-      and(eq(constellationMember.constellationId, constellationId), eq(constellationMember.userId, userId)),
+      and(
+        eq(constellationMember.constellationId, constellationId),
+        eq(constellationMember.userId, userId),
+      ),
     )
     .limit(1);
 

@@ -264,6 +264,19 @@ export const clusterRouter = router({
         .where(sql`lower(${user.email}) = ${input.email.toLowerCase()}`)
         .limit(1);
       if (!targetUser) throw new TRPCError({ code: "NOT_FOUND", message: "No such user" });
+      const [isMember] = await db
+        .select({ id: constellationMember.id })
+        .from(constellationMember)
+        .where(
+          and(
+            eq(constellationMember.constellationId, cl.constellationId),
+            eq(constellationMember.userId, targetUser.id),
+          ),
+        )
+        .limit(1);
+      if (!isMember) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Not a constellation member" });
+      }
       await db
         .insert(clusterMember)
         .values({
