@@ -132,7 +132,7 @@ export const constellationRouter = router({
         .limit(1);
       role = membership?.role ?? null;
     }
-    if (row.status === "draft" && (role === null || !canManageConstellation(role))) {
+    if (row.status === "draft" && role === null) {
       throw new TRPCError({ code: "NOT_FOUND", message: "Constellation not found" });
     }
     return { constellation: row, viewerRole: role };
