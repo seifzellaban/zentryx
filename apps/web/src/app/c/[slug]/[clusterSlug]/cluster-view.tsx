@@ -27,6 +27,55 @@ export default function ClusterView({ slug, clusterSlug }: { slug: string; clust
     trpc.cluster.getBySlug.queryOptions({ constellationSlug: slug, clusterSlug }),
   );
 
+  const queryClient = useQueryClient();
+  const [content, setContent] = useState("");
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+
+  const clusterId = clusterQuery.data?.cluster.id;
+  const access = clusterQuery.data?.access;
+
+  const postsQuery = useQuery({
+    ...trpc.post.list.queryOptions({
+      clusterId: clusterId ?? "00000000-0000-0000-0000-000000000000",
+    }),
+    enabled: !!clusterId && access === "granted",
+  });
+
+  const createPost = useMutation(
+    trpc.post.create.mutationOptions({
+      onSuccess: () => {
+        setContent("");
+        setReplyTo(null);
+        toast.success("Posted");
+        if (clusterId) queryClient.invalidateQueries(trpc.post.list.queryFilter({ clusterId }));
+      },
+      onError: (error) => {
+        if (error.data?.code === "FORBIDDEN") toast.error("No access to post");
+        else toast.error(error.message || "Failed to post");
+      },
+    }),
+  );
+
+  const pinPost = useMutation(
+    trpc.post.pin.mutationOptions({
+      onSuccess: () => {
+        toast.success("Updated");
+        if (clusterId) queryClient.invalidateQueries(trpc.post.list.queryFilter({ clusterId }));
+      },
+      onError: toastMutationError,
+    }),
+  );
+
+  const deletePost = useMutation(
+    trpc.post.delete.mutationOptions({
+      onSuccess: () => {
+        toast.success("Deleted");
+        if (clusterId) queryClient.invalidateQueries(trpc.post.list.queryFilter({ clusterId }));
+      },
+      onError: toastMutationError,
+    }),
+  );
+
   if (clusterQuery.isPending) {
     return (
       <div className="mx-auto w-full max-w-5xl space-y-6 py-8">
@@ -83,51 +132,7 @@ export default function ClusterView({ slug, clusterSlug }: { slug: string; clust
     );
   }
 
-  const { cluster, access, hasPendingRequest } = clusterQuery.data;
-
-  const queryClient = useQueryClient();
-  const [content, setContent] = useState("");
-  const [replyTo, setReplyTo] = useState<string | null>(null);
-
-  const postsQuery = useQuery({
-    ...trpc.post.list.queryOptions({ clusterId: cluster.id }),
-    enabled: access === "granted",
-  });
-
-  const createPost = useMutation(
-    trpc.post.create.mutationOptions({
-      onSuccess: () => {
-        setContent("");
-        setReplyTo(null);
-        toast.success("Posted");
-        queryClient.invalidateQueries(trpc.post.list.queryFilter({ clusterId: cluster.id }));
-      },
-      onError: (error) => {
-        if (error.data?.code === "FORBIDDEN") toast.error("No access to post");
-        else toast.error(error.message || "Failed to post");
-      },
-    }),
-  );
-
-  const pinPost = useMutation(
-    trpc.post.pin.mutationOptions({
-      onSuccess: () => {
-        toast.success("Updated");
-        queryClient.invalidateQueries(trpc.post.list.queryFilter({ clusterId: cluster.id }));
-      },
-      onError: toastMutationError,
-    }),
-  );
-
-  const deletePost = useMutation(
-    trpc.post.delete.mutationOptions({
-      onSuccess: () => {
-        toast.success("Deleted");
-        queryClient.invalidateQueries(trpc.post.list.queryFilter({ clusterId: cluster.id }));
-      },
-      onError: toastMutationError,
-    }),
-  );
+  const { cluster, hasPendingRequest } = clusterQuery.data;
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 py-8">
