@@ -16,7 +16,7 @@ import { Label } from "@zentryx/ui/components/label";
 import { Skeleton } from "@zentryx/ui/components/skeleton";
 import { Textarea } from "@zentryx/ui/components/textarea";
 
-import { MagnitudeBadge, MagnitudeBreakdown } from "@/components/magnitude-badge";
+import { MagnitudeBadge } from "@/components/magnitude-badge";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/utils/trpc";
 

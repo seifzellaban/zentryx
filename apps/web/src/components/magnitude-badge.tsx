@@ -22,23 +22,3 @@ export function MagnitudeBadge({
     </span>
   );
 }
-
-export function MagnitudeBreakdown({
-  constellationId,
-  userId,
-}: {
-  constellationId: string;
-  userId: string;
-}) {
-  const q = useQuery(trpc.magnitude.getBreakdown.queryOptions({ constellationId, userId }));
-  if (q.isPending || q.isError || !q.data) return null;
-  return (
-    <div className="rounded-xl bg-muted p-3 text-xs">
-      <p className="font-semibold">Magnitude {q.data.total}</p>
-      <p className="text-muted-foreground">
-        attendance {q.data.byCategory.attendance} • post {q.data.byCategory.post} • endorsement{" "}
-        {q.data.byCategory.endorsement} ({q.data.events} events)
-      </p>
-    </div>
-  );
-}
