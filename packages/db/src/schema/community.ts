@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { index, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, index, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 
@@ -139,6 +139,20 @@ export const clusterJoinRequest = pgTable(
   ],
 );
 
+export const clusterPost = pgTable(
+  "cluster_post",
+  {
+    id: idColumn(),
+    clusterId: text("cluster_id").notNull().references(() => cluster.id, { onDelete: "cascade" }),
+    authorId: text("author_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    parentPostId: text("parent_post_id").references((): any => clusterPost.id, { onDelete: "cascade" }),
+    pinned: boolean("pinned").notNull().default(false),
+    ...timestamps,
+  },
+  (t) => [index("cluster_post_cluster_idx").on(t.clusterId), index("cluster_post_parent_idx").on(t.parentPostId)],
+);
+
 export const constellationRelations = relations(constellation, ({ many }) => ({
   members: many(constellationMember),
   clusters: many(cluster),
@@ -172,3 +186,4 @@ export type ConstellationMember = typeof constellationMember.$inferSelect;
 export type ConstellationInvite = typeof constellationInvite.$inferSelect;
 export type ClusterMember = typeof clusterMember.$inferSelect;
 export type ClusterJoinRequest = typeof clusterJoinRequest.$inferSelect;
+export type ClusterPost = typeof clusterPost.$inferSelect;
