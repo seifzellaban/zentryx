@@ -18,9 +18,17 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>Welcome {session.user.name}</p>
+    <div className="py-8 sm:py-10">
+      <div className="mb-8 space-y-2">
+        <p className="text-xs font-semibold tracking-widest text-muted-foreground">DASHBOARD</p>
+        <h1 className="font-serif text-3xl font-bold tracking-tight sm:text-4xl">
+          Welcome,{" "}
+          <span className="font-light italic">{session.user.name?.split(" ")[0] ?? "there"}</span>
+        </h1>
+        <p className="max-w-[60ch] text-sm leading-relaxed text-muted-foreground sm:text-base">
+          Your constellations, memberships, and the clusters you can access — all in one place.
+        </p>
+      </div>
       <Dashboard session={session} />
     </div>
   );
