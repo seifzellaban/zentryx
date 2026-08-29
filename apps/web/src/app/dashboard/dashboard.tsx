@@ -12,6 +12,7 @@ import { trpc } from "@/utils/trpc";
 
 export default function Dashboard({ session }: { session: typeof authClient.$Infer.Session }) {
   const mine = useQuery(trpc.constellation.listMine.queryOptions());
+  const privateData = useQuery(trpc.privateData.queryOptions());
 
   if (mine.isPending) {
     return (
@@ -174,9 +175,7 @@ export default function Dashboard({ session }: { session: typeof authClient.$Inf
         <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
           <span className="text-muted-foreground">
             API:{" "}
-            <span className="font-medium text-foreground">
-              {useQuery(trpc.privateData.queryOptions()).data?.message ?? "—"}
-            </span>
+            <span className="font-medium text-foreground">{privateData.data?.message ?? "—"}</span>
           </span>
           <span className="font-mono text-xs text-muted-foreground">{session.user.email}</span>
         </CardContent>
