@@ -143,14 +143,23 @@ export const clusterPost = pgTable(
   "cluster_post",
   {
     id: idColumn(),
-    clusterId: text("cluster_id").notNull().references(() => cluster.id, { onDelete: "cascade" }),
-    authorId: text("author_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    clusterId: text("cluster_id")
+      .notNull()
+      .references(() => cluster.id, { onDelete: "cascade" }),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
-    parentPostId: text("parent_post_id").references((): any => clusterPost.id, { onDelete: "cascade" }),
+    parentPostId: text("parent_post_id").references((): any => clusterPost.id, {
+      onDelete: "cascade",
+    }),
     pinned: boolean("pinned").notNull().default(false),
     ...timestamps,
   },
-  (t) => [index("cluster_post_cluster_idx").on(t.clusterId), index("cluster_post_parent_idx").on(t.parentPostId)],
+  (t) => [
+    index("cluster_post_cluster_idx").on(t.clusterId),
+    index("cluster_post_parent_idx").on(t.parentPostId),
+  ],
 );
 
 export const constellationRelations = relations(constellation, ({ many }) => ({

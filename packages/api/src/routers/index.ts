@@ -2,6 +2,7 @@ import { protectedProcedure, publicProcedure, router } from "../index";
 
 import { clusterRouter } from "./cluster";
 import { constellationRouter } from "./constellation";
+import { postRouter } from "./post";
 import { profileRouter } from "./profile";
 
 export const appRouter = router({
@@ -17,5 +18,6 @@ export const appRouter = router({
   profile: profileRouter,
   constellation: constellationRouter,
   cluster: clusterRouter,
+  post: postRouter,
 });
 export type AppRouter = typeof appRouter;
