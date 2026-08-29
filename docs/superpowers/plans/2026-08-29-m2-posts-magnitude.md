@@ -20,20 +20,20 @@
 
 ## File Structure
 
-| File | Responsibility |
-|------|----------------|
-| `packages/db/src/schema/community.ts` | Add `clusterPost` table + indexes |
-| `packages/db/src/schema/magnitude.ts` | `magnitudeWeight` + `magnitudeEvent` tables |
-| `packages/db/src/schema/index.ts` | Re-export magnitude schema |
-| `packages/api/src/magnitude.ts` | Pure scoring (defaults, clamp, `computeScore`) + unit tests |
-| `packages/api/test/magnitude.test.ts` | Magnitude unit tests (7+ expects) |
-| `packages/api/src/routers/post.ts` | `post.create/list/pin/delete` — access-gated |
-| `packages/api/src/routers/magnitude.ts` | `magnitude.getBreakdown/setWeight/listWeights` |
-| `packages/api/src/routers/index.ts` | Mount `post` + `magnitude` |
-| `apps/web/src/app/c/[slug]/[clusterSlug]/cluster-view.tsx` | Integrate post feed + pin button |
-| `apps/web/src/components/magnitude-badge.tsx` | Reusable magnitude score + breakdown popover |
-| `apps/web/src/app/c/[slug]/constellation-view.tsx` | Show magnitude in Members tab via badge |
-| `apps/server/scripts/seed.ts` | Seed demo posts + magnitude events for `demo-constellation` |
+| File                                                       | Responsibility                                              |
+| ---------------------------------------------------------- | ----------------------------------------------------------- |
+| `packages/db/src/schema/community.ts`                      | Add `clusterPost` table + indexes                           |
+| `packages/db/src/schema/magnitude.ts`                      | `magnitudeWeight` + `magnitudeEvent` tables                 |
+| `packages/db/src/schema/index.ts`                          | Re-export magnitude schema                                  |
+| `packages/api/src/magnitude.ts`                            | Pure scoring (defaults, clamp, `computeScore`) + unit tests |
+| `packages/api/test/magnitude.test.ts`                      | Magnitude unit tests (7+ expects)                           |
+| `packages/api/src/routers/post.ts`                         | `post.create/list/pin/delete` — access-gated                |
+| `packages/api/src/routers/magnitude.ts`                    | `magnitude.getBreakdown/setWeight/listWeights`              |
+| `packages/api/src/routers/index.ts`                        | Mount `post` + `magnitude`                                  |
+| `apps/web/src/app/c/[slug]/[clusterSlug]/cluster-view.tsx` | Integrate post feed + pin button                            |
+| `apps/web/src/components/magnitude-badge.tsx`              | Reusable magnitude score + breakdown popover                |
+| `apps/web/src/app/c/[slug]/constellation-view.tsx`         | Show magnitude in Members tab via badge                     |
+| `apps/server/scripts/seed.ts`                              | Seed demo posts + magnitude events for `demo-constellation` |
 
 ---
 
@@ -61,6 +61,7 @@ Expected: `7 pass, 17 expect`.
 ### Task 1: DB schema — cluster posts
 
 **Files:**
+
 - Modify: `packages/db/src/schema/community.ts`
 - Modify: `packages/db/src/schema/index.ts`
 
@@ -80,7 +81,9 @@ export const clusterPost = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
-    parentPostId: text("parent_post_id").references((): any => clusterPost.id, { onDelete: "cascade" }),
+    parentPostId: text("parent_post_id").references((): any => clusterPost.id, {
+      onDelete: "cascade",
+    }),
     pinned: text("pinned").notNull().default("false"), // use boolean below if pg boolean preferred
     ...timestamps,
   },
@@ -95,14 +98,23 @@ export const clusterPost = pgTable(
   "cluster_post",
   {
     id: idColumn(),
-    clusterId: text("cluster_id").notNull().references(() => cluster.id, { onDelete: "cascade" }),
-    authorId: text("author_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    clusterId: text("cluster_id")
+      .notNull()
+      .references(() => cluster.id, { onDelete: "cascade" }),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
-    parentPostId: text("parent_post_id").references((): any => clusterPost.id, { onDelete: "cascade" }),
+    parentPostId: text("parent_post_id").references((): any => clusterPost.id, {
+      onDelete: "cascade",
+    }),
     pinned: text("pinned").notNull().default("0"), // keep text for neon compat — or use boolean if already boolean in auth
     ...timestamps,
   },
-  (t) => [index("cluster_post_cluster_idx").on(t.clusterId), index("cluster_post_parent_idx").on(t.parentPostId)],
+  (t) => [
+    index("cluster_post_cluster_idx").on(t.clusterId),
+    index("cluster_post_parent_idx").on(t.parentPostId),
+  ],
 );
 ```
 
@@ -115,14 +127,23 @@ export const clusterPost = pgTable(
   "cluster_post",
   {
     id: idColumn(),
-    clusterId: text("cluster_id").notNull().references(() => cluster.id, { onDelete: "cascade" }),
-    authorId: text("author_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    clusterId: text("cluster_id")
+      .notNull()
+      .references(() => cluster.id, { onDelete: "cascade" }),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
-    parentPostId: text("parent_post_id").references((): any => clusterPost.id, { onDelete: "cascade" }),
+    parentPostId: text("parent_post_id").references((): any => clusterPost.id, {
+      onDelete: "cascade",
+    }),
     pinned: boolean("pinned").notNull().default(false),
     ...timestamps,
   },
-  (t) => [index("cluster_post_cluster_idx").on(t.clusterId), index("cluster_post_parent_idx").on(t.parentPostId)],
+  (t) => [
+    index("cluster_post_cluster_idx").on(t.clusterId),
+    index("cluster_post_parent_idx").on(t.parentPostId),
+  ],
 );
 ```
 
@@ -148,6 +169,7 @@ git commit -m "feat(db): cluster_post table for threaded posts"
 ### Task 2: DB schema — magnitude weights & events
 
 **Files:**
+
 - Create: `packages/db/src/schema/magnitude.ts`
 - Modify: `packages/db/src/schema/index.ts`
 
@@ -159,40 +181,61 @@ import { sql } from "drizzle-orm";
 import { user } from "./auth";
 import { constellation } from "./community";
 
-export const magnitudeCategoryEnum = pgEnum("magnitude_category", ["attendance", "post", "endorsement"]);
+export const magnitudeCategoryEnum = pgEnum("magnitude_category", [
+  "attendance",
+  "post",
+  "endorsement",
+]);
 
-const idColumn = () => text("id").primaryKey().$defaultFn(() => crypto.randomUUID());
+const idColumn = () =>
+  text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID());
 const timestamps = {
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 };
 
 export const magnitudeWeight = pgTable(
   "magnitude_weight",
   {
     id: idColumn(),
-    constellationId: text("constellation_id").notNull().references(() => constellation.id, { onDelete: "cascade" }),
+    constellationId: text("constellation_id")
+      .notNull()
+      .references(() => constellation.id, { onDelete: "cascade" }),
     category: magnitudeCategoryEnum("category").notNull(),
     weight: text("weight").notNull().default("1"), // store as text numeric 0.5-2, or use numeric — use text for neon-http simplicity then parseFloat
     updatedById: text("updated_by_id").references(() => user.id, { onDelete: "set null" }),
     ...timestamps,
   },
-  (t) => [uniqueIndex("magnitude_weight_constellation_category_uidx").on(t.constellationId, t.category)],
+  (t) => [
+    uniqueIndex("magnitude_weight_constellation_category_uidx").on(t.constellationId, t.category),
+  ],
 );
 
 export const magnitudeEvent = pgTable(
   "magnitude_event",
   {
     id: idColumn(),
-    constellationId: text("constellation_id").notNull().references(() => constellation.id, { onDelete: "cascade" }),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    constellationId: text("constellation_id")
+      .notNull()
+      .references(() => constellation.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     category: magnitudeCategoryEnum("category").notNull(),
     points: text("points").notNull(), // integer points as text for neon-http
     weightAtEvent: text("weight_at_event").notNull(), // snapshot of weight 0.5-2
     actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [index("magnitude_event_constellation_user_idx").on(t.constellationId, t.userId), index("magnitude_event_category_idx").on(t.category)],
+  (t) => [
+    index("magnitude_event_constellation_user_idx").on(t.constellationId, t.userId),
+    index("magnitude_event_category_idx").on(t.category),
+  ],
 );
 
 export type MagnitudeCategory = (typeof magnitudeCategoryEnum.enumValues)[number];
@@ -226,6 +269,7 @@ git commit -m "feat(db): magnitude weight and event tables"
 ### Task 3: Pure magnitude module (TDD)
 
 **Files:**
+
 - Create: `packages/api/src/magnitude.ts`
 - Test: `packages/api/test/magnitude.test.ts`
 
@@ -236,14 +280,25 @@ import { describe, expect, test } from "bun:test";
 import { clampWeight, computeScore, DEFAULT_WEIGHTS } from "../src/magnitude";
 
 describe("clampWeight", () => {
-  test("clamps 0.5-2", () => { expect(clampWeight(0.1)).toBe(0.5); expect(clampWeight(3)).toBe(2); expect(clampWeight(1.2)).toBe(1.2); });
+  test("clamps 0.5-2", () => {
+    expect(clampWeight(0.1)).toBe(0.5);
+    expect(clampWeight(3)).toBe(2);
+    expect(clampWeight(1.2)).toBe(1.2);
+  });
 });
 describe("computeScore", () => {
   test("sums points*weight, floors at 0", () => {
-    expect(computeScore([{ category: "post", points: 2, weight: 1 }, { category: "post", points: 2, weight: 1.5 }])).toBe(5);
+    expect(
+      computeScore([
+        { category: "post", points: 2, weight: 1 },
+        { category: "post", points: 2, weight: 1.5 },
+      ]),
+    ).toBe(5);
     expect(computeScore([{ category: "post", points: -10, weight: 1 }])).toBe(0);
   });
-  test("defaults exist", () => { expect(DEFAULT_WEIGHTS.post).toBe(1); });
+  test("defaults exist", () => {
+    expect(DEFAULT_WEIGHTS.post).toBe(1);
+  });
 });
 ```
 
@@ -256,11 +311,19 @@ Expected: FAIL cannot resolve `../src/magnitude`.
 
 ```ts
 import type { MagnitudeCategory } from "@zentryx/db/schema";
-export const DEFAULT_WEIGHTS: Record<MagnitudeCategory, number> = { attendance: 1, post: 1, endorsement: 1 };
+export const DEFAULT_WEIGHTS: Record<MagnitudeCategory, number> = {
+  attendance: 1,
+  post: 1,
+  endorsement: 1,
+};
 export const MIN_WEIGHT = 0.5;
 export const MAX_WEIGHT = 2;
-export function clampWeight(w: number): number { return Math.min(MAX_WEIGHT, Math.max(MIN_WEIGHT, w)); }
-export function computeScore(events: { category: MagnitudeCategory; points: number; weight: number }[]): number {
+export function clampWeight(w: number): number {
+  return Math.min(MAX_WEIGHT, Math.max(MIN_WEIGHT, w));
+}
+export function computeScore(
+  events: { category: MagnitudeCategory; points: number; weight: number }[],
+): number {
   const sum = events.reduce((acc, e) => acc + e.points * clampWeight(e.weight), 0);
   return Math.max(0, Math.round(sum));
 }
@@ -283,6 +346,7 @@ git commit -m "feat(api): pure magnitude scoring with bounded weights"
 ### Task 4: Post router — access-gated CRUD
 
 **Files:**
+
 - Create: `packages/api/src/routers/post.ts`
 - Modify: `packages/api/src/routers/index.ts`
 
@@ -301,57 +365,143 @@ import { db as _db } from "@zentryx/db"; // ensure import
 async function requireClusterAccess(userId: string, clusterId: string, needGranted = true) {
   const [cl] = await db.select().from(cluster).where(eq(cluster.id, clusterId)).limit(1);
   if (!cl) throw new TRPCError({ code: "NOT_FOUND" });
-  const [membership] = await db.select({ role: constellationMember.role }).from(constellationMember).where(and(eq(constellationMember.userId, userId), eq(constellationMember.constellationId, cl.constellationId))).limit(1);
+  const [membership] = await db
+    .select({ role: constellationMember.role })
+    .from(constellationMember)
+    .where(
+      and(
+        eq(constellationMember.userId, userId),
+        eq(constellationMember.constellationId, cl.constellationId),
+      ),
+    )
+    .limit(1);
   if (!membership) throw new TRPCError({ code: "FORBIDDEN" });
-  const grants = await db.select({ clusterId: clusterPost.clusterId }).from(clusterPost).where(eq(clusterPost.clusterId, clusterId)).limit(0); // not needed — use clusterMember
+  const grants = await db
+    .select({ clusterId: clusterPost.clusterId })
+    .from(clusterPost)
+    .where(eq(clusterPost.clusterId, clusterId))
+    .limit(0); // not needed — use clusterMember
   // use clusterMember for grants
   const { clusterMember } = await import("@zentryx/db/schema");
-  const grants2 = await db.select({ clusterId: clusterMember.clusterId }).from(clusterMember).innerJoin(cluster, eq(cluster.id, clusterMember.clusterId)).where(and(eq(clusterMember.userId, userId), eq(cluster.constellationId, cl.constellationId)));
+  const grants2 = await db
+    .select({ clusterId: clusterMember.clusterId })
+    .from(clusterMember)
+    .innerJoin(cluster, eq(cluster.id, clusterMember.clusterId))
+    .where(and(eq(clusterMember.userId, userId), eq(cluster.constellationId, cl.constellationId)));
   const grantedIds = new Set(grants2.map((g) => g.clusterId));
-  const access = resolveClusterAccess({ role: membership.role, visibility: cl.visibility, isClusterMember: grantedIds.has(cl.id) });
-  if (needGranted && access !== "granted") throw new TRPCError({ code: "FORBIDDEN", message: "No access to cluster" });
+  const access = resolveClusterAccess({
+    role: membership.role,
+    visibility: cl.visibility,
+    isClusterMember: grantedIds.has(cl.id),
+  });
+  if (needGranted && access !== "granted")
+    throw new TRPCError({ code: "FORBIDDEN", message: "No access to cluster" });
   return { cl, role: membership.role };
 }
 
 export const postRouter = router({
-  create: protectedProcedure.input(z.object({ clusterId: z.uuid(), content: z.string().min(1).max(2000), parentPostId: z.uuid().optional() })).mutation(async ({ ctx, input }) => {
-    await requireClusterAccess(ctx.session.user.id, input.clusterId, true);
-    if (input.parentPostId) {
-      const [parent] = await db.select().from(clusterPost).where(eq(clusterPost.id, input.parentPostId)).limit(1);
-      if (!parent || parent.clusterId !== input.clusterId) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid parent" });
-    }
-    const [created] = await db.insert(clusterPost).values({ clusterId: input.clusterId, authorId: ctx.session.user.id, content: input.content, parentPostId: input.parentPostId ?? null }).returning();
-    // magnitude side-effect: insert event for post (points=2, weight snapshot)
-    const { magnitudeEvent, magnitudeWeight } = await import("@zentryx/db/schema");
-    const [weightRow] = await db.select().from(magnitudeWeight).where(and(eq(magnitudeWeight.constellationId, (await db.select().from(cluster).where(eq(cluster.id, input.clusterId)).limit(1))[0]!.constellationId), eq(magnitudeWeight.category, "post"))).limit(1);
-    const w = weightRow ? Number.parseFloat(weightRow.weight) : 1;
-    const [cl] = await db.select().from(cluster).where(eq(cluster.id, input.clusterId)).limit(1);
-    await db.insert(magnitudeEvent).values({ constellationId: cl!.constellationId, userId: ctx.session.user.id, category: "post", points: "2", weightAtEvent: String(w), actorId: ctx.session.user.id });
-    return created;
-  }),
-  list: protectedProcedure.input(z.object({ clusterId: z.uuid() })).query(async ({ ctx, input }) => {
-    await requireClusterAccess(ctx.session.user.id, input.clusterId, true);
-    const rows = await db.select().from(clusterPost).where(eq(clusterPost.clusterId, input.clusterId)).orderBy(asc(clusterPost.pinned), desc(clusterPost.createdAt));
-    return rows;
-  }),
-  pin: protectedProcedure.input(z.object({ postId: z.uuid(), pinned: z.boolean() })).mutation(async ({ ctx, input }) => {
-    const [post] = await db.select().from(clusterPost).where(eq(clusterPost.id, input.postId)).limit(1);
-    if (!post) throw new TRPCError({ code: "NOT_FOUND" });
-    const { role } = await requireClusterAccess(ctx.session.user.id, post.clusterId, false);
-    if (role !== "owner" && role !== "navigator") throw new TRPCError({ code: "FORBIDDEN" });
-    const [updated] = await db.update(clusterPost).set({ pinned: input.pinned }).where(eq(clusterPost.id, input.postId)).returning();
-    return updated;
-  }),
-  delete: protectedProcedure.input(z.object({ postId: z.uuid() })).mutation(async ({ ctx, input }) => {
-    const [post] = await db.select().from(clusterPost).where(eq(clusterPost.id, input.postId)).limit(1);
-    if (!post) throw new TRPCError({ code: "NOT_FOUND" });
-    if (post.authorId !== ctx.session.user.id) {
+  create: protectedProcedure
+    .input(
+      z.object({
+        clusterId: z.uuid(),
+        content: z.string().min(1).max(2000),
+        parentPostId: z.uuid().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireClusterAccess(ctx.session.user.id, input.clusterId, true);
+      if (input.parentPostId) {
+        const [parent] = await db
+          .select()
+          .from(clusterPost)
+          .where(eq(clusterPost.id, input.parentPostId))
+          .limit(1);
+        if (!parent || parent.clusterId !== input.clusterId)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid parent" });
+      }
+      const [created] = await db
+        .insert(clusterPost)
+        .values({
+          clusterId: input.clusterId,
+          authorId: ctx.session.user.id,
+          content: input.content,
+          parentPostId: input.parentPostId ?? null,
+        })
+        .returning();
+      // magnitude side-effect: insert event for post (points=2, weight snapshot)
+      const { magnitudeEvent, magnitudeWeight } = await import("@zentryx/db/schema");
+      const [weightRow] = await db
+        .select()
+        .from(magnitudeWeight)
+        .where(
+          and(
+            eq(
+              magnitudeWeight.constellationId,
+              (await db.select().from(cluster).where(eq(cluster.id, input.clusterId)).limit(1))[0]!
+                .constellationId,
+            ),
+            eq(magnitudeWeight.category, "post"),
+          ),
+        )
+        .limit(1);
+      const w = weightRow ? Number.parseFloat(weightRow.weight) : 1;
+      const [cl] = await db.select().from(cluster).where(eq(cluster.id, input.clusterId)).limit(1);
+      await db.insert(magnitudeEvent).values({
+        constellationId: cl!.constellationId,
+        userId: ctx.session.user.id,
+        category: "post",
+        points: "2",
+        weightAtEvent: String(w),
+        actorId: ctx.session.user.id,
+      });
+      return created;
+    }),
+  list: protectedProcedure
+    .input(z.object({ clusterId: z.uuid() }))
+    .query(async ({ ctx, input }) => {
+      await requireClusterAccess(ctx.session.user.id, input.clusterId, true);
+      const rows = await db
+        .select()
+        .from(clusterPost)
+        .where(eq(clusterPost.clusterId, input.clusterId))
+        .orderBy(asc(clusterPost.pinned), desc(clusterPost.createdAt));
+      return rows;
+    }),
+  pin: protectedProcedure
+    .input(z.object({ postId: z.uuid(), pinned: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const [post] = await db
+        .select()
+        .from(clusterPost)
+        .where(eq(clusterPost.id, input.postId))
+        .limit(1);
+      if (!post) throw new TRPCError({ code: "NOT_FOUND" });
       const { role } = await requireClusterAccess(ctx.session.user.id, post.clusterId, false);
-      if (role !== "owner" && role !== "navigator" && role !== "moderator") throw new TRPCError({ code: "FORBIDDEN" });
-    }
-    await db.delete(clusterPost).where(eq(clusterPost.id, input.postId));
-    return { ok: true };
-  }),
+      if (role !== "owner" && role !== "navigator") throw new TRPCError({ code: "FORBIDDEN" });
+      const [updated] = await db
+        .update(clusterPost)
+        .set({ pinned: input.pinned })
+        .where(eq(clusterPost.id, input.postId))
+        .returning();
+      return updated;
+    }),
+  delete: protectedProcedure
+    .input(z.object({ postId: z.uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const [post] = await db
+        .select()
+        .from(clusterPost)
+        .where(eq(clusterPost.id, input.postId))
+        .limit(1);
+      if (!post) throw new TRPCError({ code: "NOT_FOUND" });
+      if (post.authorId !== ctx.session.user.id) {
+        const { role } = await requireClusterAccess(ctx.session.user.id, post.clusterId, false);
+        if (role !== "owner" && role !== "navigator" && role !== "moderator")
+          throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      await db.delete(clusterPost).where(eq(clusterPost.id, input.postId));
+      return { ok: true };
+    }),
 });
 ```
 
@@ -364,7 +514,10 @@ import { postRouter } from "./post";
 import { magnitudeRouter } from "./magnitude";
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => "OK"),
-  privateData: protectedProcedure.query(({ ctx }) => ({ message: "This is private", user: ctx.session.user })),
+  privateData: protectedProcedure.query(({ ctx }) => ({
+    message: "This is private",
+    user: ctx.session.user,
+  })),
   profile: profileRouter,
   constellation: constellationRouter,
   cluster: clusterRouter,
@@ -390,6 +543,7 @@ git commit -m "feat(api): post router with gated create/list/pin/delete and magn
 ### Task 5: Magnitude router
 
 **Files:**
+
 - Create: `packages/api/src/routers/magnitude.ts`
 
 - [ ] **Step 5.1: Write `packages/api/src/routers/magnitude.ts`**
@@ -404,29 +558,99 @@ import { clampWeight, computeScore, DEFAULT_WEIGHTS } from "../magnitude";
 import { protectedProcedure, router } from "../index";
 
 export const magnitudeRouter = router({
-  getBreakdown: protectedProcedure.input(z.object({ constellationId: z.uuid(), userId: z.uuid() })).query(async ({ ctx, input }) => {
-    const [mem] = await db.select().from(constellationMember).where(and(eq(constellationMember.constellationId, input.constellationId), eq(constellationMember.userId, ctx.session.user.id))).limit(1);
-    if (!mem) throw new TRPCError({ code: "FORBIDDEN" });
-    const events = await db.select().from(magnitudeEvent).where(and(eq(magnitudeEvent.constellationId, input.constellationId), eq(magnitudeEvent.userId, input.userId)));
-    const byCat = { attendance: 0, post: 0, endorsement: 0 } as Record<string, number>;
-    const parsed = events.map((e) => ({ category: e.category as any, points: Number.parseInt(e.points, 10), weight: Number.parseFloat(e.weightAtEvent) }));
-    for (const ev of parsed) byCat[ev.category] += ev.points * clampWeight(ev.weight);
-    return { total: computeScore(parsed), byCategory: byCat, events: events.length };
-  }),
-  listWeights: protectedProcedure.input(z.object({ constellationId: z.uuid() })).query(async ({ ctx, input }) => {
-    const [mem] = await db.select().from(constellationMember).where(and(eq(constellationMember.constellationId, input.constellationId), eq(constellationMember.userId, ctx.session.user.id))).limit(1);
-    if (!mem) throw new TRPCError({ code: "FORBIDDEN" });
-    const rows = await db.select().from(magnitudeWeight).where(eq(magnitudeWeight.constellationId, input.constellationId));
-    const map = new Map(rows.map((r) => [r.category, Number.parseFloat(r.weight)]));
-    return { attendance: map.get("attendance") ?? DEFAULT_WEIGHTS.attendance, post: map.get("post") ?? DEFAULT_WEIGHTS.post, endorsement: map.get("endorsement") ?? DEFAULT_WEIGHTS.endorsement };
-  }),
-  setWeight: protectedProcedure.input(z.object({ constellationId: z.uuid(), category: z.enum(["attendance", "post", "endorsement"]), weight: z.number().min(0.5).max(2) })).mutation(async ({ ctx, input }) => {
-    const [mem] = await db.select().from(constellationMember).where(and(eq(constellationMember.constellationId, input.constellationId), eq(constellationMember.userId, ctx.session.user.id))).limit(1);
-    if (!mem || (mem.role !== "owner" && mem.role !== "navigator")) throw new TRPCError({ code: "FORBIDDEN" });
-    const w = clampWeight(input.weight);
-    await db.insert(magnitudeWeight).values({ constellationId: input.constellationId, category: input.category, weight: String(w), updatedById: ctx.session.user.id }).onConflictDoUpdate({ target: [magnitudeWeight.constellationId, magnitudeWeight.category], set: { weight: String(w), updatedById: ctx.session.user.id } });
-    return { ok: true, weight: w };
-  }),
+  getBreakdown: protectedProcedure
+    .input(z.object({ constellationId: z.uuid(), userId: z.uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [mem] = await db
+        .select()
+        .from(constellationMember)
+        .where(
+          and(
+            eq(constellationMember.constellationId, input.constellationId),
+            eq(constellationMember.userId, ctx.session.user.id),
+          ),
+        )
+        .limit(1);
+      if (!mem) throw new TRPCError({ code: "FORBIDDEN" });
+      const events = await db
+        .select()
+        .from(magnitudeEvent)
+        .where(
+          and(
+            eq(magnitudeEvent.constellationId, input.constellationId),
+            eq(magnitudeEvent.userId, input.userId),
+          ),
+        );
+      const byCat = { attendance: 0, post: 0, endorsement: 0 } as Record<string, number>;
+      const parsed = events.map((e) => ({
+        category: e.category as any,
+        points: Number.parseInt(e.points, 10),
+        weight: Number.parseFloat(e.weightAtEvent),
+      }));
+      for (const ev of parsed) byCat[ev.category] += ev.points * clampWeight(ev.weight);
+      return { total: computeScore(parsed), byCategory: byCat, events: events.length };
+    }),
+  listWeights: protectedProcedure
+    .input(z.object({ constellationId: z.uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [mem] = await db
+        .select()
+        .from(constellationMember)
+        .where(
+          and(
+            eq(constellationMember.constellationId, input.constellationId),
+            eq(constellationMember.userId, ctx.session.user.id),
+          ),
+        )
+        .limit(1);
+      if (!mem) throw new TRPCError({ code: "FORBIDDEN" });
+      const rows = await db
+        .select()
+        .from(magnitudeWeight)
+        .where(eq(magnitudeWeight.constellationId, input.constellationId));
+      const map = new Map(rows.map((r) => [r.category, Number.parseFloat(r.weight)]));
+      return {
+        attendance: map.get("attendance") ?? DEFAULT_WEIGHTS.attendance,
+        post: map.get("post") ?? DEFAULT_WEIGHTS.post,
+        endorsement: map.get("endorsement") ?? DEFAULT_WEIGHTS.endorsement,
+      };
+    }),
+  setWeight: protectedProcedure
+    .input(
+      z.object({
+        constellationId: z.uuid(),
+        category: z.enum(["attendance", "post", "endorsement"]),
+        weight: z.number().min(0.5).max(2),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [mem] = await db
+        .select()
+        .from(constellationMember)
+        .where(
+          and(
+            eq(constellationMember.constellationId, input.constellationId),
+            eq(constellationMember.userId, ctx.session.user.id),
+          ),
+        )
+        .limit(1);
+      if (!mem || (mem.role !== "owner" && mem.role !== "navigator"))
+        throw new TRPCError({ code: "FORBIDDEN" });
+      const w = clampWeight(input.weight);
+      await db
+        .insert(magnitudeWeight)
+        .values({
+          constellationId: input.constellationId,
+          category: input.category,
+          weight: String(w),
+          updatedById: ctx.session.user.id,
+        })
+        .onConflictDoUpdate({
+          target: [magnitudeWeight.constellationId, magnitudeWeight.category],
+          set: { weight: String(w), updatedById: ctx.session.user.id },
+        });
+      return { ok: true, weight: w };
+    }),
 });
 ```
 
@@ -472,15 +696,29 @@ As `demo-member` (who has `granted` on `open-lounge` but `locked` on `mentors-lo
 ### Task 7: Web — posts feed in cluster view
 
 **Files:**
+
 - Modify: `apps/web/src/app/c/[slug]/[clusterSlug]/cluster-view.tsx`
 - Create: `apps/web/src/components/magnitude-badge.tsx` (optional for posts)
 
 - [ ] **Step 7.1: Add tRPC queries in `ClusterView`**
 
 In `ClusterView` after `clusterQuery`, add:
+
 ```ts
-const postsQuery = useQuery({ ...trpc.post.list.queryOptions({ clusterId: cluster.id }), enabled: access === "granted" });
-const createPost = useMutation(trpc.post.create.mutationOptions({ onSuccess: () => { setContent(""); queryClient.invalidateQueries(trpc.post.list.queryFilter({ clusterId: cluster.id })); toast.success("Posted"); }, onError: toastMutationError }));
+const postsQuery = useQuery({
+  ...trpc.post.list.queryOptions({ clusterId: cluster.id }),
+  enabled: access === "granted",
+});
+const createPost = useMutation(
+  trpc.post.create.mutationOptions({
+    onSuccess: () => {
+      setContent("");
+      queryClient.invalidateQueries(trpc.post.list.queryFilter({ clusterId: cluster.id }));
+      toast.success("Posted");
+    },
+    onError: toastMutationError,
+  }),
+);
 const [content, setContent] = useState("");
 ```
 
@@ -506,6 +744,7 @@ git commit -m "feat(web): cluster post feed with threading and pinning"
 ### Task 8: Web — magnitude surfaces
 
 **Files:**
+
 - Create: `apps/web/src/components/magnitude-badge.tsx`
 - Modify: `apps/web/src/app/c/[slug]/constellation-view.tsx`
 - Modify: `apps/web/src/components/magnitude-badge.tsx` used there + cluster header
@@ -517,11 +756,24 @@ git commit -m "feat(web): cluster post feed with threading and pinning"
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@zentryx/ui/components/card";
 import { trpc } from "@/utils/trpc";
-export function MagnitudeBadge({ constellationId, userId }: { constellationId: string; userId: string }) {
+export function MagnitudeBadge({
+  constellationId,
+  userId,
+}: {
+  constellationId: string;
+  userId: string;
+}) {
   const q = useQuery(trpc.magnitude.getBreakdown.queryOptions({ constellationId, userId }));
   if (q.isPending) return <span className="rounded-full bg-muted px-2 py-0.5 text-xs">…</span>;
   if (q.isError) return null;
-  return <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground" title={`attendance ${q.data.byCategory.attendance} • post ${q.data.byCategory.post} • endorsement ${q.data.byCategory.endorsement}`}>{q.data.total} ✦</span>;
+  return (
+    <span
+      className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground"
+      title={`attendance ${q.data.byCategory.attendance} • post ${q.data.byCategory.post} • endorsement ${q.data.byCategory.endorsement}`}
+    >
+      {q.data.total} ✦
+    </span>
+  );
 }
 ```
 
@@ -541,6 +793,7 @@ git commit -m "feat(web): magnitude badges and weight controls"
 ### Task 9: Seed demo posts & magnitude
 
 **Files:**
+
 - Modify: `apps/server/scripts/seed.ts`
 
 - [ ] **Step 9.1: Seed posts + events**
