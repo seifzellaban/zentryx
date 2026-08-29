@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, Layers, Lock, Sparkles, Users } from "lucide-react";
+import { ArrowLeft, Check, Layers, Lock, Users } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useState } from "react";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Button } from "@zentryx/ui/components/button";
 import { Card, CardContent } from "@zentryx/ui/components/card";
 import { Skeleton } from "@zentryx/ui/components/skeleton";
+import { Textarea } from "@zentryx/ui/components/textarea";
 
 import { trpc } from "@/utils/trpc";
 
@@ -83,6 +84,50 @@ export default function ClusterView({ slug, clusterSlug }: { slug: string; clust
   }
 
   const { cluster, access, hasPendingRequest } = clusterQuery.data;
+
+  const queryClient = useQueryClient();
+  const [content, setContent] = useState("");
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+
+  const postsQuery = useQuery({
+    ...trpc.post.list.queryOptions({ clusterId: cluster.id }),
+    enabled: access === "granted",
+  });
+
+  const createPost = useMutation(
+    trpc.post.create.mutationOptions({
+      onSuccess: () => {
+        setContent("");
+        setReplyTo(null);
+        toast.success("Posted");
+        queryClient.invalidateQueries(trpc.post.list.queryFilter({ clusterId: cluster.id }));
+      },
+      onError: (error) => {
+        if (error.data?.code === "FORBIDDEN") toast.error("No access to post");
+        else toast.error(error.message || "Failed to post");
+      },
+    }),
+  );
+
+  const pinPost = useMutation(
+    trpc.post.pin.mutationOptions({
+      onSuccess: () => {
+        toast.success("Updated");
+        queryClient.invalidateQueries(trpc.post.list.queryFilter({ clusterId: cluster.id }));
+      },
+      onError: toastMutationError,
+    }),
+  );
+
+  const deletePost = useMutation(
+    trpc.post.delete.mutationOptions({
+      onSuccess: () => {
+        toast.success("Deleted");
+        queryClient.invalidateQueries(trpc.post.list.queryFilter({ clusterId: cluster.id }));
+      },
+      onError: toastMutationError,
+    }),
+  );
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 py-8">
@@ -163,20 +208,123 @@ export default function ClusterView({ slug, clusterSlug }: { slug: string; clust
       </div>
 
       {access === "granted" && (
-        <Card className="rounded-2xl border-accent/30 bg-accent/10">
-          <CardContent className="flex gap-4 p-6">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-              <Sparkles className="size-5" />
-            </span>
-            <div className="space-y-1">
-              <h2 className="font-semibold">Discussion space arrives in M2</h2>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Chat, threads, and async posts will live here. Recordings and sessions follow in the
-                next milestone.
-              </p>
+        <div className="space-y-4">
+          <Card className="rounded-2xl">
+            <CardContent className="space-y-3 p-5">
+              {replyTo && (
+                <div className="flex items-center justify-between rounded-xl bg-muted px-3 py-2 text-xs">
+                  <span>Replying to {replyTo.slice(0, 8)}…</span>
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    className="rounded-full"
+                    onClick={() => setReplyTo(null)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+              <Textarea
+                dir="auto"
+                placeholder="Share something… try RTL مرحبا"
+                className="min-h-[80px] rounded-xl"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+              />
+              <div className="flex justify-end">
+                <Button
+                  className="rounded-full"
+                  disabled={!content.trim() || createPost.isPending}
+                  onClick={() =>
+                    createPost.mutate({
+                      clusterId: cluster.id,
+                      content: content.trim(),
+                      ...(replyTo ? { parentPostId: replyTo } : {}),
+                    })
+                  }
+                >
+                  {createPost.isPending ? "Posting…" : "Post"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {postsQuery.isPending ? (
+            <Skeleton className="h-32 rounded-2xl" />
+          ) : postsQuery.isError ? (
+            <p className="text-sm text-muted-foreground">Could not load posts.</p>
+          ) : postsQuery.data.length === 0 ? (
+            <Card className="rounded-2xl border-dashed">
+              <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                No posts yet — be the first.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {postsQuery.data.map((post) => {
+                const isReply = !!post.parentPostId;
+                return (
+                  <Card
+                    key={post.id}
+                    className={`rounded-2xl ${isReply ? "ml-6 border-l-4" : ""} ${post.pinned ? "border-accent bg-accent/5" : ""}`}
+                  >
+                    <CardContent className="space-y-2 p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            dir="auto"
+                            className="whitespace-pre-wrap break-words text-sm leading-relaxed"
+                          >
+                            {post.content}
+                          </p>
+                          <p className="mt-1 font-mono text-xs text-muted-foreground">
+                            {new Date(post.createdAt).toLocaleString()} •{" "}
+                            {post.authorId.slice(0, 6)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          {access === "granted" && (
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              className="rounded-full"
+                              onClick={() => setReplyTo(post.id)}
+                            >
+                              Reply
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            className="rounded-full"
+                            onClick={() =>
+                              pinPost.mutate({ postId: post.id, pinned: !post.pinned })
+                            }
+                          >
+                            {post.pinned ? "Unpin" : "Pin"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            className="rounded-full"
+                            onClick={() => deletePost.mutate({ postId: post.id })}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                      {post.pinned && (
+                        <span className="inline-flex rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-foreground">
+                          Pinned
+                        </span>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </div>
       )}
 
       {access === "locked" && (
