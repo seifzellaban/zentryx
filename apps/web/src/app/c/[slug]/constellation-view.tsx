@@ -16,6 +16,7 @@ import { Label } from "@zentryx/ui/components/label";
 import { Skeleton } from "@zentryx/ui/components/skeleton";
 import { Textarea } from "@zentryx/ui/components/textarea";
 
+import { MagnitudeBadge, MagnitudeBreakdown } from "@/components/magnitude-badge";
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/utils/trpc";
 
@@ -730,6 +731,24 @@ function MembersTab({
     }
   }
 
+  const weightsQuery = useQuery({
+    ...trpc.magnitude.listWeights.queryOptions({ constellationId }),
+    enabled: canManage,
+  });
+  const setWeight = useMutation(
+    trpc.magnitude.setWeight.mutationOptions({
+      onSuccess: () => {
+        toast.success("Weight updated");
+        queryClient.invalidateQueries(trpc.magnitude.listWeights.queryFilter({ constellationId }));
+      },
+      onError: toastMutationError,
+    }),
+  );
+  const [weightCategory, setWeightCategory] = useState<"attendance" | "post" | "endorsement">(
+    "post",
+  );
+  const [weightValue, setWeightValue] = useState("1");
+
   return (
     <div className="space-y-6">
       {isModeratorPlus && (
@@ -874,6 +893,56 @@ function MembersTab({
         </Card>
       )}
 
+      {canManage && (
+        <section className="space-y-2 rounded-2xl border bg-card p-4">
+          <h3 className="text-sm font-semibold">Magnitude weights (0.5–2×)</h3>
+          {weightsQuery.isPending ? (
+            <Skeleton className="h-10 rounded-xl" />
+          ) : weightsQuery.data ? (
+            <div className="space-y-2 text-xs">
+              <p className="text-muted-foreground">
+                attendance {weightsQuery.data.attendance} • post {weightsQuery.data.post} •
+                endorsement {weightsQuery.data.endorsement}
+              </p>
+              <div className="flex gap-2">
+                <select
+                  className={selectClasses}
+                  value={weightCategory}
+                  onChange={(e) => setWeightCategory(e.target.value as any)}
+                >
+                  <option value="attendance">attendance</option>
+                  <option value="post">post</option>
+                  <option value="endorsement">endorsement</option>
+                </select>
+                <Input
+                  type="number"
+                  min={0.5}
+                  max={2}
+                  step={0.1}
+                  value={weightValue}
+                  onChange={(e) => setWeightValue(e.target.value)}
+                  className="h-9 rounded-xl"
+                />
+                <Button
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => {
+                    const v = Number.parseFloat(weightValue);
+                    if (!Number.isFinite(v) || v < 0.5 || v > 2) {
+                      toast.error("Weight must be 0.5–2");
+                      return;
+                    }
+                    setWeight.mutate({ constellationId, category: weightCategory, weight: v });
+                  }}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      )}
+
       <Card className="rounded-2xl">
         <CardContent className="space-y-3 p-5 sm:p-6">
           <div className="flex items-center gap-2">
@@ -906,6 +975,7 @@ function MembersTab({
                       <p className="text-sm font-medium leading-none">{member.name}</p>
                       <p className="font-mono text-xs text-muted-foreground">{member.role}</p>
                     </div>
+                    <MagnitudeBadge constellationId={constellationId} userId={member.userId} />
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {viewerRole === "owner" ? (
