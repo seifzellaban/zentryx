@@ -16,7 +16,8 @@ dotenv.config({ path: envPath });
 
 const { auth } = await import("@zentryx/auth");
 const { db } = await import("@zentryx/db");
-const { cluster, constellation, constellationMember, user } = await import("@zentryx/db/schema");
+const { cluster, clusterPost, constellation, constellationMember, magnitudeEvent, user } =
+  await import("@zentryx/db/schema");
 
 const DEMO_PASSWORD = "zentryx-demo-1";
 const CONSTELLATION_SLUG = "demo-constellation";
@@ -46,6 +47,8 @@ const createdSlugs: string[] = [];
 const reusedSlugs: string[] = [];
 const createdMemberships: string[] = [];
 const reusedMemberships: string[] = [];
+const postsCreated: string[] = [];
+const postsReused: string[] = [];
 const emails: string[] = [];
 
 function mark(slug: string, status: Mark) {
@@ -172,6 +175,80 @@ async function main() {
     mark(definition.slug, "created");
   }
 
+  const [openLounge] = await db
+    .select({ id: cluster.id })
+    .from(cluster)
+    .where(and(eq(cluster.constellationId, constellationId), eq(cluster.slug, "open-lounge")))
+    .limit(1);
+
+  if (openLounge) {
+    const demoPosts: Array<{
+      content: string;
+      authorId: string;
+      label: string;
+      parentContent?: string;
+    }> = [
+      {
+        content: "Welcome to Open Lounge — ask anything!",
+        authorId: navId,
+        label: "open-lounge:welcome",
+      },
+      {
+        content: "مرحبا — RTL check: hello from member!",
+        authorId: memberId,
+        label: "open-lounge:rtl-reply",
+        parentContent: "Welcome to Open Lounge — ask anything!",
+      },
+    ];
+
+    for (const p of demoPosts) {
+      const existingPost = await db
+        .select({ id: clusterPost.id })
+        .from(clusterPost)
+        .where(and(eq(clusterPost.clusterId, openLounge.id), eq(clusterPost.content, p.content)))
+        .limit(1);
+
+      if (existingPost[0]) {
+        postsReused.push(p.label);
+        continue;
+      }
+
+      let parentId: string | null = null;
+      if (p.parentContent) {
+        const [parent] = await db
+          .select({ id: clusterPost.id })
+          .from(clusterPost)
+          .where(
+            and(eq(clusterPost.clusterId, openLounge.id), eq(clusterPost.content, p.parentContent)),
+          )
+          .limit(1);
+        parentId = parent?.id ?? null;
+      }
+
+      const [created] = await db
+        .insert(clusterPost)
+        .values({
+          clusterId: openLounge.id,
+          authorId: p.authorId,
+          content: p.content,
+          parentPostId: parentId,
+        })
+        .returning({ id: clusterPost.id });
+
+      if (created) {
+        await db.insert(magnitudeEvent).values({
+          constellationId,
+          userId: p.authorId,
+          category: "post",
+          points: "2",
+          weightAtEvent: "1",
+          actorId: p.authorId,
+        });
+        postsCreated.push(p.label);
+      }
+    }
+  }
+
   console.log(
     JSON.stringify(
       {
@@ -180,6 +257,8 @@ async function main() {
         reused: reusedSlugs,
         membershipsCreated: createdMemberships,
         membershipsReused: reusedMemberships,
+        postsCreated,
+        postsReused,
       },
       null,
       2,
